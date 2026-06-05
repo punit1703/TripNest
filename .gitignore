@@ -56,3 +56,4 @@ Thumbs.db
 .vscode/
 *.sublime-workspace
 *.sublime-project
+local_settings.py
