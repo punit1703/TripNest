@@ -18,6 +18,7 @@ class TripSerializer(serializers.ModelSerializer):
         fields = (
             'id', 
             'name', 
+            'origin',
             'destination', 
             'start_date', 
             'end_date', 
@@ -37,6 +38,7 @@ class TripDetailSerializer(serializers.ModelSerializer):
         fields = (
             'id', 
             'name', 
+            'origin',
             'destination', 
             'start_date', 
             'end_date', 

@@ -79,3 +79,51 @@ class GetUserTripsView(generics.ListAPIView):
         # Return all trips where the user is a member
         return Trip.objects.filter(trip_members__user=self.request.user).order_by('-created_at')
 
+from django.db.models import Sum
+
+class TripAnalyticsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, trip_id):
+        try:
+            trip = Trip.objects.get(id=trip_id)
+        except Trip.DoesNotExist:
+            return Response({"error": "Trip not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        if not TripMember.objects.filter(trip=trip, user=request.user).exists():
+            return Response({"error": "You do not have permission to view this trip's analytics"}, status=status.HTTP_403_FORBIDDEN)
+            
+        # Budget Overview
+        total_budget = trip.total_budget
+        from expenses.models import Expense
+        spent = Expense.objects.filter(trip=trip).aggregate(total=Sum('amount'))['total'] or 0
+        remaining = total_budget - spent
+        
+        # Expense Categories
+        categories_agg = Expense.objects.filter(trip=trip).values('category').annotate(total=Sum('amount'))
+        categories = {item['category']: item['total'] for item in categories_agg}
+        
+        # Default categories based on models.py
+        for cat in ['Food', 'Transport', 'Accommodation', 'Activities', 'Other']:
+            if cat not in categories:
+                categories[cat] = 0
+                
+        # Trip Statistics
+        total_members = trip.trip_members.count()
+        total_expenses = Expense.objects.filter(trip=trip).count()
+        duration_days = (trip.end_date - trip.start_date).days + 1
+        
+        return Response({
+            "budget_overview": {
+                "budget": total_budget,
+                "spent": spent,
+                "remaining": remaining
+            },
+            "expense_categories": categories,
+            "trip_statistics": {
+                "total_members": total_members,
+                "total_expenses": total_expenses,
+                "trip_duration_days": duration_days
+            }
+        })
+

@@ -5,18 +5,24 @@ from django.conf import settings
 
 class OpenRouterService:
     @staticmethod
-    def generate_itinerary(destination, days, budget):
+    def generate_itinerary(origin, destination, days, budget):
         api_key = getattr(settings, 'OPENROUTER_API_KEY', None)
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY is not configured.")
 
         prompt = (
-            f"Create a structured {days}-day itinerary for a trip to {destination} with a total budget of {budget}. "
+            f"Create a structured {days}-day itinerary for a trip from {origin} to {destination} and back to {origin} "
+            f"with a total budget of {budget}. "
             "Return the response STRICTLY as a JSON object with the following structure:\n"
             "{\n"
-            '  "estimated_budget": "A brief string describing the estimated budget breakdown",\n'
+            '  "estimated_budget": {\n'
+            '      "accommodation": "...",\n'
+            '      "food": "...",\n'
+            '      "travel": "...",\n'
+            '      "activities": "..."\n'
+            '  },\n'
             '  "itinerary": [\n'
-            '    {"day_number": 1, "title": "...", "description": "..."},\n'
+            '    {"day_number": 1, "title": "Day 1", "description": "Arrival, Calangute Beach, Evening Market"},\n'
             '    ...\n'
             "  ]\n"
             "}\n"
@@ -30,6 +36,7 @@ class OpenRouterService:
         }
         data = {
             "model": "google/gemini-2.5-pro",
+            "max_tokens": 2500,
             "messages": [
                 {"role": "user", "content": prompt}
             ]

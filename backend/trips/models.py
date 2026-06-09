@@ -11,6 +11,7 @@ def generate_unique_invite_code():
 
 class Trip(models.Model):
     name = models.CharField(max_length=255)
+    origin = models.CharField(max_length=255, default='Unknown')
     destination = models.CharField(max_length=255)
     start_date = models.DateField()
     end_date = models.DateField()

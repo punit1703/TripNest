@@ -27,7 +27,7 @@ class GenerateItineraryView(APIView):
             return Response({"error": "You are not a member of this trip."}, status=status.HTTP_403_FORBIDDEN)
             
         try:
-            ai_response = OpenRouterService.generate_itinerary(destination, days, budget)
+            ai_response = OpenRouterService.generate_itinerary(trip.origin, destination, days, budget)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             

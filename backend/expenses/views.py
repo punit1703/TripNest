@@ -8,13 +8,24 @@ from trips.models import Trip, TripMember
 from django.shortcuts import get_object_or_404
 from collections import defaultdict
 from decimal import Decimal
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 class AddExpenseView(generics.CreateAPIView):
     serializer_class = ExpenseSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(paid_by=self.request.user)
+        expense = serializer.save(paid_by=self.request.user)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'trip_{expense.trip.id}',
+            {
+                'type': 'expense_update',
+                'action': 'add',
+                'message': 'A new expense was added.'
+            }
+        )
 
 class TripExpensesView(generics.ListAPIView):
     serializer_class = ExpenseSerializer
@@ -35,7 +46,20 @@ class ExpenseDetailView(generics.DestroyAPIView):
         expense = self.get_object()
         if expense.paid_by != request.user and expense.trip.created_by != request.user:
             return Response({"error": "You do not have permission to delete this expense."}, status=status.HTTP_403_FORBIDDEN)
-        return self.destroy(request, *args, **kwargs)
+            
+        trip_id = expense.trip.id
+        response = self.destroy(request, *args, **kwargs)
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'trip_{trip_id}',
+            {
+                'type': 'expense_update',
+                'action': 'delete',
+                'message': 'An expense was deleted.'
+            }
+        )
+        return response
 
 class TripSettlementView(APIView):
     permission_classes = [IsAuthenticated]
