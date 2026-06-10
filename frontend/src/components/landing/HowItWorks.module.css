@@ -1,0 +1,101 @@
+.howItWorks {
+  background-color: var(--color-bg);
+  padding: 8rem 0;
+}
+
+.header {
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto 5rem;
+}
+
+.title {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.subtitle {
+  font-size: 1.125rem;
+  color: var(--color-text-muted);
+}
+
+.stepsContainer {
+  position: relative;
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4rem;
+}
+
+.step {
+  display: flex;
+  gap: 3rem;
+  position: relative;
+  z-index: 2;
+  align-items: flex-start;
+}
+
+.stepNumber {
+  font-family: var(--font-heading);
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: var(--color-surface);
+  text-shadow: -1px -1px 0 var(--color-primary-light), 1px -1px 0 var(--color-primary-light), -1px 1px 0 var(--color-primary-light), 1px 1px 0 var(--color-primary-light);
+  line-height: 1;
+  min-width: 80px;
+}
+
+.stepContent {
+  background: white;
+  padding: 2.5rem;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
+  flex: 1;
+  transition: transform var(--transition-normal);
+}
+
+.stepContent:hover {
+  transform: translateX(10px);
+  border-color: var(--color-primary-light);
+}
+
+.stepTitle {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary-dark);
+}
+
+.stepDescription {
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.line {
+  position: absolute;
+  left: 35px;
+  top: 40px;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--color-primary-light), transparent);
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .step {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .line {
+    display: none;
+  }
+  .stepNumber {
+    font-size: 2.5rem;
+    margin-bottom: -1rem;
+    position: relative;
+    z-index: 3;
+    margin-left: 1rem;
+  }
+}

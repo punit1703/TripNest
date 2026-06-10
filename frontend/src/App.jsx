@@ -1,9 +1,16 @@
+
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
+import './index.css';
+
 function App() {
   return (
-    <div className="h-screen flex items-center justify-center bg-black text-white text-4xl">
-      TripSync
-    </div>
-  )
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+      </Routes>
+    </Router>
+  );
 }
 
-export default App
+export default App;
