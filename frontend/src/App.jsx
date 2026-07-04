@@ -1,10 +1,20 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
+import Login from './pages/Login';       // Newly imported
+import Register from './pages/Register'; // Newly imported
 
-// Placeholder components for our next phases
-const Login = () => <div className="p-10 text-2xl font-bold">Login Page (Coming Soon)</div>;
-const Register = () => <div className="p-10 text-2xl font-bold">Register Page (Coming Soon)</div>;
-const Dashboard = () => <div className="p-10 text-2xl font-bold">Dashboard (Protected)</div>;
+// Placeholder component for the dashboard (we build this next!)
+const Dashboard = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center text-3xl font-bold text-purple-700">
+    Welcome to your Dashboard!
+  </div>
+);
+
+// Protected Route wrapper checks for JWT token
+const ProtectedRoute = ({ children }) => {
+    const isAuthenticated = !!localStorage.getItem('token');
+    return isAuthenticated ? children : <Navigate to="/login" />;
+};
 
 function App() {
   return (
@@ -17,7 +27,14 @@ function App() {
           <Route path="/register" element={<Register />} />
 
           {/* Protected Routes */}
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
           
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
