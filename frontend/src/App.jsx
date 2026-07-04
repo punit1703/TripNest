@@ -1,10 +1,14 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard'; // Import the new production dashboard page
 
-// Placeholder components for our next phases
-const Login = () => <div className="p-10 text-2xl font-bold">Login Page (Coming Soon)</div>;
-const Register = () => <div className="p-10 text-2xl font-bold">Register Page (Coming Soon)</div>;
-const Dashboard = () => <div className="p-10 text-2xl font-bold">Dashboard (Protected)</div>;
+// Protected Route checks if a token exists in local storage [cite: 173, 174]
+const ProtectedRoute = ({ children }) => {
+    const isAuthenticated = !!localStorage.getItem('token');
+    return isAuthenticated ? children : <Navigate to="/login" />;
+};
 
 function App() {
   return (
@@ -17,7 +21,14 @@ function App() {
           <Route path="/register" element={<Register />} />
 
           {/* Protected Routes */}
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route 
+            path="/dashboard" 
+            element = {
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
           
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
