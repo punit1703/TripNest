@@ -1,16 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';       // Newly imported
-import Register from './pages/Register'; // Newly imported
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard'; // Import the new production dashboard page
 
-// Placeholder component for the dashboard (we build this next!)
-const Dashboard = () => (
-  <div className="min-h-screen bg-gray-50 flex items-center justify-center text-3xl font-bold text-purple-700">
-    Welcome to your Dashboard!
-  </div>
-);
-
-// Protected Route wrapper checks for JWT token
+// Protected Route checks if a token exists in local storage [cite: 173, 174]
 const ProtectedRoute = ({ children }) => {
     const isAuthenticated = !!localStorage.getItem('token');
     return isAuthenticated ? children : <Navigate to="/login" />;
@@ -29,7 +23,7 @@ function App() {
           {/* Protected Routes */}
           <Route 
             path="/dashboard" 
-            element={
+            element = {
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
