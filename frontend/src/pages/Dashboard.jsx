@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, UserPlus, Calendar, MapPin, DollarSign, Key, Loader2, LogOut, Sparkles, FolderTravel } from 'lucide-react';
+import { Plus, UserPlus, Calendar, MapPin, DollarSign, Key, Loader2, LogOut, Sparkles} from 'lucide-react';
 import api from '../services/api';
 
 const Dashboard = () => {
