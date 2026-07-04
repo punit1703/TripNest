@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import api from '../services/api';
-
-const Login = () => {
+const Register = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ username: '', email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-const handleChange = (e) => {
+  const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(''); // Clear error when user types
+    setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -19,16 +18,13 @@ const handleChange = (e) => {
     setIsLoading(true);
     
     try {
-      // Calls your Django backend at POST /api/login
-      const response = await api.post('/login', formData);
+      // Calls your Django backend at POST /api/register
+      await api.post('/register', formData);
       
-      // Store the JWT token (adjust 'response.data.token' or 'response.data.access' based on your DRF setup)
-      localStorage.setItem('token', response.data.token || response.data.access);
-      
-      // Redirect to the protected dashboard
-      navigate('/dashboard');
+      // On successful registration, redirect to login page
+      navigate('/login');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid email or password. Please try again.');
+      setError(err.response?.data?.detail || 'Registration failed. Username or email might already exist.');
     } finally {
       setIsLoading(false);
     }
@@ -42,12 +38,12 @@ const handleChange = (e) => {
           TripNest
         </Link>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Welcome back
+          Create an account
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Don't have an account?{' '}
-          <Link to="/register" className="font-medium text-purple-600 hover:text-purple-500 transition-colors">
-            Sign up for free
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-purple-600 hover:text-purple-500 transition-colors">
+            Log in here
           </Link>
         </p>
       </div>
@@ -60,6 +56,24 @@ const handleChange = (e) => {
                 {error}
               </div>
             )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Username</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  name="username"
+                  required
+                  value={formData.username}
+                  onChange={handleChange}
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all sm:text-sm"
+                  placeholder="traveler123"
+                />
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Email address</label>
@@ -89,6 +103,7 @@ const handleChange = (e) => {
                   type="password"
                   name="password"
                   required
+                  minLength="8"
                   value={formData.password}
                   onChange={handleChange}
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all sm:text-sm"
@@ -102,7 +117,7 @@ const handleChange = (e) => {
               disabled={isLoading}
               className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Log In'}
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Account'}
               {!isLoading && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
@@ -112,4 +127,4 @@ const handleChange = (e) => {
   );
 };
 
-export default Login;
+export default Register;
