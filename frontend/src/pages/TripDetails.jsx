@@ -19,7 +19,7 @@ const TripDetails = () => {
     try {
       setIsLoading(true);
       // Fetches the specific trip data based on the URL parameter
-      const response = await api.get(`/trips/${id}`);
+      const response = await api.get(`/trips/${id}/`);
       setTrip(response.data);
     } catch (err) {
       setError('Failed to load trip details.');
@@ -101,11 +101,41 @@ const TripDetails = () => {
       {/* Tab Content Areas (We will build these fully in the next steps) */}
       <main className="max-w-5xl mx-auto px-6">
         {activeTab === 'overview' && (
-          <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Trip Members</h2>
-            <p className="text-slate-500 mb-6">Share your invite code <strong>{trip.invite_code}</strong> with friends so they can join this trip.</p>
-            {/* We will map through trip.members here later */}
+          <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="text-center mb-6">
+              <Users className="w-12 h-12 text-purple-600 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-slate-900 mb-2">Trip Members</h2>
+              <p className="text-slate-500">
+                Share your invite code <strong className="text-purple-600">{trip.invite_code}</strong> with friends so they can join this trip.
+              </p>
+            </div>
+
+            {/* Check if we have members to show */}
+            {trip.members && trip.members.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                {trip.members.map((member, index) => {
+                  const username = member.user?.username || member.username || (typeof member === 'string' ? member : 'Unknown');
+                  const firstLetter = username.charAt(0).toUpperCase();
+                  return (
+                    <div key={index} className="flex items-center gap-3 p-4 bg-purple-50/50 rounded-2xl border border-purple-100/50 hover:bg-purple-50 transition-all duration-200">
+                      <div className="w-10 h-10 bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-sm">
+                        {firstLetter}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-slate-800">{username}</span>
+                        {member.user?.email && (
+                          <span className="text-xs text-slate-400 truncate">{member.user.email}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center text-slate-400 py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200 mt-6">
+                No members have joined this trip yet.
+              </div>
+            )}
           </div>
         )}
 
