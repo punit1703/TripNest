@@ -53,6 +53,10 @@ INSTALLED_APPS = [
     'trips.apps.TripsConfig',
     'expenses',
     'ai_planner',
+
+    # ... your other apps ...
+    
+
 ]
 
 MIDDLEWARE = [
@@ -64,6 +68,12 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware', # Add this line right here!
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    # ... other middleware ...
+
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -191,3 +201,4 @@ try:
     from .local_settings import *
 except ImportError:
     pass
+CORS_ALLOW_ALL_ORIGINS = True  # Only for development!

@@ -26,18 +26,27 @@ class RegisterView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+from django.contrib.auth.models import User
+
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
-        username = request.data.get('username')
+        username_or_email = request.data.get('username') or request.data.get('email')
         password = request.data.get('password')
 
-        if not username or not password:
+        if not username_or_email or not password:
             return Response(
-                {'error': 'Please provide both username and password'},
+                {'error': 'Please provide both username/email and password'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Resolve email to username if input looks like an email
+        username = username_or_email
+        if '@' in username_or_email:
+            user_by_email = User.objects.filter(email=username_or_email).first()
+            if user_by_email:
+                username = user_by_email.username
 
         user = authenticate(username=username, password=password)
         if user is not None:
