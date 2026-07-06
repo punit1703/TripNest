@@ -20,15 +20,15 @@ const handleChange = (e) => {
     
     try {
       // Calls your Django backend at POST /api/login
-      const response = await api.post('/login', formData);
+      const response =await api.post('/login/', formData); // <-- Add the slash here!
       
-      // Store the JWT token (adjust 'response.data.token' or 'response.data.access' based on your DRF setup)
-      localStorage.setItem('token', response.data.token || response.data.access);
+      // Store the JWT token
+      localStorage.setItem('token', response.data.tokens?.access || response.data.access || response.data.token);
       
       // Redirect to the protected dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid email or password. Please try again.');
+      setError(err.response?.data?.detail || err.response?.data?.error || 'Invalid email or password. Please try again.');
     } finally {
       setIsLoading(false);
     }

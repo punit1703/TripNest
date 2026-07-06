@@ -19,12 +19,35 @@ const Register = () => {
     
     try {
       // Calls your Django backend at POST /api/register
-      await api.post('/register', formData);
+      // Add the slash right after register!
+      await api.post('/register/', formData);
       
       // On successful registration, redirect to login page
       navigate('/login');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed. Username or email might already exist.');
+      // Add this line right here!
+      console.log("Django says:", err.response?.data); 
+      
+      const errorData = err.response?.data;
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          setError(errorData);
+        } else if (errorData.detail) {
+          setError(errorData.detail);
+        } else {
+          // Extract and format field-specific validation errors nicely
+          const errorMsg = Object.entries(errorData)
+            .map(([field, msgs]) => {
+              const cleanField = field.charAt(0).toUpperCase() + field.slice(1);
+              const cleanMsgs = Array.isArray(msgs) ? msgs.join(' ') : msgs;
+              return `${cleanField}: ${cleanMsgs}`;
+            })
+            .join(' | ');
+          setError(errorMsg || 'Registration failed. Please check your inputs.');
+        }
+      } else {
+        setError('Registration failed. Username or email might already exist.');
+      }
     } finally {
       setIsLoading(false);
     }
