@@ -10,6 +10,7 @@ const TripDetails = () => {
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenses, setExpenses] = useState([]);
+  const [itinerary, setItinerary] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // overview, itinerary, expenses
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -110,8 +111,8 @@ const TripDetails = () => {
   const handleGenerateItinerary = async () => {
     try {
         const response = await api.post(`/trips/${id}/generate-itinerary/`);
-        console.log("The Expert System says:", response.data);
-        alert("Schedule generated! Check your browser console.");
+        // Instead of logging, we save it to our new state!
+        setItinerary(response.data.itinerary); 
     } catch (error) {
         console.error("Generation failed:", error);
     }
@@ -229,25 +230,49 @@ const TripDetails = () => {
         )}
 
         {activeTab === 'itinerary' && (
-          <div className="mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">✨</span>
-              </div>
-              
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  Magic Itinerary Generator
-              </h3>
-              
-              <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                  Let our intelligent system build a custom, day-by-day schedule for your trip to <strong className="text-purple-600">{trip.destination}</strong> based on your ${parseFloat(trip.total_budget).toLocaleString()} budget.
-              </p>
-              
-              <button
-                  onClick={handleGenerateItinerary}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition-all transform hover:scale-105 shadow-md flex items-center gap-2 mx-auto"
-              >
-                  Generate My Schedule
-              </button>
+          <div className="mt-8">
+              {/* If we DON'T have an itinerary yet, show the generator button */}
+              {!itinerary ? (
+                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in">
+                      <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-3xl">✨</span>
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Magic Itinerary Generator</h3>
+                      <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                          Let our intelligent system build a custom schedule for <strong className="text-purple-600">{trip.destination}</strong> based on your ${parseFloat(trip.total_budget).toLocaleString()} budget.
+                      </p>
+                      <button
+                          onClick={handleGenerateItinerary}
+                          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md mx-auto"
+                      >
+                          Generate My Schedule
+                      </button>
+                  </div>
+              ) : (
+                  /* If we DO have an itinerary, display the day-by-day plan! */
+                  <div className="space-y-4">
+                      <h3 className="text-xl font-bold text-gray-900 mb-4 px-2">Your AI-Generated Schedule</h3>
+                      
+                      {itinerary.map((dayPlan, index) => (
+                          <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-purple-100 flex items-center gap-6 transition-all hover:shadow-md">
+                              <div className="flex-shrink-0 w-16 h-16 bg-purple-50 text-purple-700 rounded-xl flex flex-col items-center justify-center font-bold border border-purple-200">
+                                  <span className="text-xs uppercase tracking-wider text-purple-500">Day</span>
+                                  <span className="text-2xl">{dayPlan.day}</span>
+                              </div>
+                              <p className="text-gray-800 text-lg leading-relaxed">
+                                  {dayPlan.activity}
+                              </p>
+                          </div>
+                      ))}
+                      
+                      <button 
+                          onClick={() => setItinerary(null)}
+                          className="mt-6 text-gray-500 hover:text-purple-600 font-medium text-sm text-center w-full transition-colors"
+                      >
+                          Start Over
+                      </button>
+                  </div>
+              )}
           </div>
         )}
 
