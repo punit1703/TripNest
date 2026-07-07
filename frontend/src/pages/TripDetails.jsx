@@ -148,10 +148,46 @@ const TripDetails = () => {
         )}
 
         {activeTab === 'expenses' && (
-          <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <Wallet className="w-12 h-12 text-emerald-300 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Expense Tracker</h2>
-            <p className="text-slate-500">We will add the form to log costs and calculate who owes who right here.</p>
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            {/* Left Side: Add Expense Form */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Add an Expense</h3>
+                <form className="flex flex-col gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <input 
+                            name="description"
+                            type="text" 
+                            placeholder="e.g., Dinner at cafe" 
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
+                        <input 
+                            name="amount"
+                            type="number" 
+                            placeholder="0.00" 
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+                        />
+                    </div>
+                    <button 
+                        type="button" 
+                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg transition-colors mt-2"
+                    >
+                        Log Expense
+                    </button>
+                </form>
+            </div>
+
+            {/* Right Side: Balances Summary */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Current Balances</h3>
+                <div className="text-gray-500 text-center flex flex-col justify-center h-[200px] bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                    <p>No expenses logged yet.</p>
+                    <p className="text-sm mt-1">Add a cost to see the math!</p>
+                </div>
+            </div>
           </div>
         )}
       </main>
