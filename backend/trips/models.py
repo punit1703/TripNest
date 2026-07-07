@@ -39,3 +39,20 @@ class TripMember(models.Model):
     def __str__(self):
         return f"{self.user.username} in {self.trip.name}"
 
+
+class Expense(models.Model):
+    # Links this expense to a specific trip
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='trips_expenses')
+    
+    # Records exactly WHO paid for it
+    payer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trips_paid_expenses')
+    
+    # The details from your React form
+    description = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Automatically logs the exact date and time
+    date_logged = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.payer.username} paid ${self.amount} for {self.description}"
