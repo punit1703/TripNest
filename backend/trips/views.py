@@ -1,8 +1,13 @@
+import os
+import json
+import google.generativeai as genai
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Trip, TripMember
-from .serializers import TripSerializer, TripDetailSerializer
+from rest_framework.decorators import api_view, permission_classes
+from .models import Trip, TripMember, Expense, ItineraryDay
+from .serializers import TripSerializer, TripDetailSerializer, ExpenseSerializer
 
 class CreateTripView(generics.CreateAPIView):
     serializer_class = TripSerializer
@@ -126,4 +131,195 @@ class TripAnalyticsView(APIView):
                 "trip_duration_days": duration_days
             }
         })
+
+
+class ExpenseListCreate(generics.ListCreateAPIView):
+    serializer_class = ExpenseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # When React asks for expenses, ONLY return the ones for this specific trip
+        return Expense.objects.filter(trip_id=self.kwargs['trip_id'])
+
+    def perform_create(self, serializer):
+        # When React saves a new expense, automatically link it to the current user and trip!
+        trip = Trip.objects.get(id=self.kwargs['trip_id'])
+        serializer.save(payer=self.request.user, trip=trip)
+
+
+def load_env_from_file():
+    from django.conf import settings
+    paths_to_check = []
+    try:
+        paths_to_check.append(os.path.join(settings.BASE_DIR, '.env'))
+        paths_to_check.append(os.path.join(settings.BASE_DIR.parent, '.env'))
+    except Exception:
+        pass
+    
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    paths_to_check.append(os.path.join(this_dir, '.env'))
+    paths_to_check.append(os.path.join(os.path.dirname(this_dir), '.env'))
+    paths_to_check.append(os.path.join(os.path.dirname(os.path.dirname(this_dir)), '.env'))
+    
+    for path in paths_to_check:
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            key_val = line.split('=', 1)
+                            if len(key_val) == 2:
+                                k, v = key_val[0].strip(), key_val[1].strip()
+                                if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                                    v = v[1:-1]
+                                os.environ[k] = v
+                break
+            except Exception:
+                pass
+
+load_env_from_file()
+
+# Configure your AI Key (looks for environment variable GEMINI_API_KEY, else defaults to placeholder)
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "YOUR_COPIED_API_KEY_HERE")) 
+
+def generate_mock_itinerary(trip):
+    days = (trip.end_date - trip.start_date).days + 1
+    if days <= 0:
+        days = 1
+    
+    dest = trip.destination
+    budget = float(trip.total_budget)
+    
+    if dest.lower() == 'spiti':
+        activities_pool = [
+            "Arrive in Kaza, acclimatize to the high altitude, and rest.",
+            "Visit Key Monastery and the high-altitude village of Kibber.",
+            "Explore the fossil village of Langza and send a postcard from Hikkim, the world's highest post office.",
+            "Drive to Pin Valley, visit Kungri Monastery, and enjoy local homestay hospitality.",
+            "Travel to Dhankar Monastery, perched cliffside, and hike to Dhankar Lake.",
+            "Enjoy a premium camping experience at the pristine Chandratal Lake (Moon Lake).",
+            "Depart Kaza and travel back via Kunzum Pass and Rohtang Pass."
+        ]
+    elif dest.lower() == 'kyoto':
+        activities_pool = [
+            "Arrive in Kyoto, check into your traditional Ryokan, and stroll around Gion in the evening.",
+            "Visit the iconic Fushimi Inari Shrine with its thousands of red torii gates.",
+            "Explore Kinkaku-ji (Golden Pavilion) and walk through the Arashiyama Bamboo Grove.",
+            "Participate in a traditional tea ceremony and explore the historic Kiyomizu-dera temple.",
+            "Take a day trip to Nara to see the giant Buddha at Todai-ji and feed the free-roaming deer.",
+            "Explore Nishiki Market to taste local street food and buy souvenirs.",
+            "Relax at a Zen rock garden and enjoy a fine multi-course kaiseki dinner before departure."
+        ]
+    else:
+        activities_pool = [
+            f"Arrive in {dest}, check in, and relax after your journey.",
+            f"Take a guided city tour to explore the major landmarks of {dest}.",
+            f"Enjoy a food tasting tour around the local markets of {dest}.",
+            f"Go on an outdoor adventure or nature trail excursion in the outskirts of {dest}.",
+            f"Visit a famous museum or cultural heritage site in {dest}.",
+            f"Indulge in a shopping spree at the popular districts of {dest}.",
+            f"Relax at a local cafe and watch the sunset on your final evening in {dest}."
+        ]
+    
+    itinerary = []
+    for day in range(1, days + 1):
+        if day == 1:
+            activity = f"Welcome to {dest}! " + activities_pool[0]
+        elif day == days and days > 1:
+            activity = activities_pool[-1]
+        else:
+            idx = (day - 1) % (len(activities_pool) - 2) + 1
+            activity = activities_pool[idx]
+        
+        if budget >= 15000:
+            activity += " [Premium/Luxury Experience]"
+        else:
+            activity += " [Budget-Friendly Option]"
+            
+        itinerary.append({
+            "day_number": day,
+            "activity_description": activity
+        })
+    return itinerary
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def generate_itinerary(request, trip_id):
+    try:
+        trip = Trip.objects.get(id=trip_id)
+        
+        # 1. Clear any old schedule if they are generating a new one
+        trip.itinerary_days.all().delete()
+
+        api_key = os.environ.get("GEMINI_API_KEY", "YOUR_COPIED_API_KEY_HERE")
+        use_mock = not api_key or api_key == "YOUR_COPIED_API_KEY_HERE"
+        
+        days_data = []
+        if use_mock:
+            days_data = generate_mock_itinerary(trip)
+        else:
+            try:
+                # 2. Write the Prompt for the AI
+                prompt = f"""
+                You are an expert travel planner. Create a day-by-day itinerary for a trip to {trip.destination}.
+                The total budget for the trip is ${trip.total_budget}.
+                The trip dates are from {trip.start_date} to {trip.end_date}. 
+                
+                Respond ONLY with a valid, raw JSON array of objects. Do not include markdown formatting like ```json.
+                Each object must have exactly two keys: "day_number" (an integer) and "activity_description" (a string detailing the plan).
+                """
+
+                # 3. Call the Gemini AI
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(prompt)
+                
+                # 4. Parse the AI's response into Python data
+                ai_text = response.text.strip()
+                
+                # Clean markdown formatting if model returned it despite instructions
+                if ai_text.startswith('```json'):
+                    ai_text = ai_text[7:]
+                if ai_text.startswith('```'):
+                    ai_text = ai_text[3:]
+                if ai_text.endswith('```'):
+                    ai_text = ai_text[:-3]
+                ai_text = ai_text.strip()
+                
+                days_data = json.loads(ai_text)
+            except Exception as e:
+                # Log error and use mock generator as fallback
+                print(f"Gemini generation failed: {e}. Falling back to mock generator.")
+                days_data = generate_mock_itinerary(trip)
+        
+        saved_days = []
+        for day in days_data:
+            day_number = day.get('day_number')
+            activity_description = day.get('activity_description')
+            
+            itinerary_day = ItineraryDay(
+                trip=trip,
+                day_number=day_number,
+                activity_description=activity_description
+            )
+            saved_days.append(itinerary_day)
+            
+        ItineraryDay.objects.bulk_create(saved_days)
+        
+        # Format output to match React's expected structure
+        itinerary_response = [
+            {"day": d.day_number, "activity": d.activity_description}
+            for d in saved_days
+        ]
+        
+        return Response({"itinerary": itinerary_response})
+        
+    except Trip.DoesNotExist:
+        return Response({"error": "Trip not found"}, status=404)
+    except json.JSONDecodeError:
+        return Response({"error": "Failed to parse AI itinerary response as JSON"}, status=500)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+
 

@@ -7,24 +7,126 @@ const TripDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [trip, setTrip] = useState(null);
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenses, setExpenses] = useState([]);
+  const [itinerary, setItinerary] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // overview, itinerary, expenses
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState('');
 
   useEffect(() => {
     fetchTripDetails();
   }, [id]);
 
+  useEffect(() => {
+    if (activeTab === 'expenses') {
+      fetchExpenses();
+    }
+  }, [id, activeTab]);
+
   const fetchTripDetails = async () => {
     try {
       setIsLoading(true);
       // Fetches the specific trip data based on the URL parameter
-      const response = await api.get(`/trips/${id}`);
+      const response = await api.get(`/trips/${id}/`);
       setTrip(response.data);
+      if (response.data.itinerary_days && response.data.itinerary_days.length > 0) {
+        setItinerary(response.data.itinerary_days.map(day => ({
+          day: day.day_number,
+          activity: day.activity_description
+        })));
+      }
     } catch (err) {
       setError('Failed to load trip details.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const response = await api.get(`/trips/${id}/expenses/`);
+      setExpenses(response.data);
+    } catch (err) {
+      console.error("Failed to load expenses:", err);
+    }
+  };
+
+  const calculateBalances = () => {
+    if (!trip || !trip.members || trip.members.length === 0) return {};
+    
+    const memberCount = trip.members.length;
+    const balances = {};
+    
+    // Initialize balances for all members to 0
+    trip.members.forEach(member => {
+      const username = member.user?.username || member.username || (typeof member === 'string' ? member : 'Unknown');
+      balances[username] = 0;
+    });
+    
+    // Calculate balances from expenses
+    expenses.forEach(exp => {
+      const payerName = exp.payer_username || (exp.payer && exp.payer.username) || 'Unknown';
+      const amount = parseFloat(exp.amount) || 0;
+      const share = amount / memberCount;
+      
+      // Each member owes their share
+      trip.members.forEach(member => {
+        const username = member.user?.username || member.username || (typeof member === 'string' ? member : 'Unknown');
+        balances[username] -= share;
+      });
+      
+      // The payer gets credited the full amount they paid
+      if (balances[payerName] !== undefined) {
+        balances[payerName] += amount;
+      } else {
+        balances[payerName] = amount - share;
+      }
+    });
+    
+    return balances;
+  };
+
+
+
+  const handleAddExpense = async (e) => {
+    e.preventDefault(); // Prevents the page from reloading
+    
+    try {
+        // Send the data to Django
+        await api.post(`/trips/${id}/expenses/`, {
+            description: expenseDesc,
+            amount: expenseAmount
+        });
+        
+        alert("Expense sent to Django!"); // Temporary success message
+        
+        // Clear the form for the next expense
+        setExpenseDesc('');
+        setExpenseAmount('');
+        
+        // Refresh the page data
+        fetchExpenses();
+    } catch (error) {
+        console.error("Error sending expense:", error);
+        alert("Backend not ready yet!");
+    }
+  };
+
+  const handleGenerateItinerary = async () => {
+    try {
+        setIsGenerating(true);
+        setGenerationError('');
+        const response = await api.post(`/trips/${id}/generate-itinerary/`);
+        setItinerary(response.data.itinerary); 
+    } catch (err) {
+        console.error("Generation failed:", err);
+        setGenerationError(err.response?.data?.error || err.message || "Failed to generate schedule. Please try again.");
+    } finally {
+        setIsGenerating(false);
     }
   };
 
@@ -101,27 +203,193 @@ const TripDetails = () => {
       {/* Tab Content Areas (We will build these fully in the next steps) */}
       <main className="max-w-5xl mx-auto px-6">
         {activeTab === 'overview' && (
-          <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Trip Members</h2>
-            <p className="text-slate-500 mb-6">Share your invite code <strong>{trip.invite_code}</strong> with friends so they can join this trip.</p>
-            {/* We will map through trip.members here later */}
+          <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="text-center mb-6">
+              <Users className="w-12 h-12 text-purple-600 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-slate-900 mb-2">Trip Members</h2>
+              <p className="text-slate-500">
+                Share your invite code <strong className="text-purple-600">{trip.invite_code}</strong> with friends so they can join this trip.
+              </p>
+            </div>
+
+            {/* Check if we have members to show */}
+            {trip.members && trip.members.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                {trip.members.map((member, index) => {
+                  const username = member.user?.username || member.username || (typeof member === 'string' ? member : 'Unknown');
+                  const firstLetter = username.charAt(0).toUpperCase();
+                  return (
+                    <div key={index} className="flex items-center gap-3 p-4 bg-purple-50/50 rounded-2xl border border-purple-100/50 hover:bg-purple-50 transition-all duration-200">
+                      <div className="w-10 h-10 bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-sm">
+                        {firstLetter}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-slate-800">{username}</span>
+                        {member.user?.email && (
+                          <span className="text-xs text-slate-400 truncate">{member.user.email}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center text-slate-400 py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200 mt-6">
+                No members have joined this trip yet.
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'itinerary' && (
-          <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <Sparkles className="w-12 h-12 text-purple-300 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">AI Travel Planner</h2>
-            <p className="text-slate-500">Your day-by-day schedule will appear here. We will integrate the AI planner next!</p>
+          <div className="mt-8">
+              {/* If we DON'T have an itinerary yet, show the generator button */}
+              {!itinerary ? (
+                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in">
+                      <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          {isGenerating ? (
+                              <Loader2 className="w-8 h-8 text-purple-600 animate-spin mx-auto mt-4" />
+                          ) : (
+                              <span className="text-3xl">✨</span>
+                          )}
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Magic Itinerary Generator</h3>
+                      <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                          Let our intelligent system build a custom schedule for <strong className="text-purple-600">{trip.destination}</strong> based on your ${parseFloat(trip.total_budget).toLocaleString()} budget.
+                      </p>
+                      
+                      {generationError && (
+                          <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl border border-red-100 mb-6 max-w-md mx-auto">
+                              {generationError}
+                          </div>
+                      )}
+
+                      <button
+                          onClick={handleGenerateItinerary}
+                          disabled={isGenerating}
+                          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md mx-auto flex items-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
+                      >
+                          {isGenerating ? (
+                              <>
+                                  <Loader2 className="w-5 h-5 animate-spin" />
+                                  Creating your plan...
+                              </>
+                          ) : (
+                              "Generate My Schedule"
+                          )}
+                      </button>
+                  </div>
+              ) : (
+                  /* If we DO have an itinerary, display the day-by-day plan! */
+                  <div className="space-y-4">
+                      <h3 className="text-xl font-bold text-gray-900 mb-4 px-2">Your AI-Generated Schedule</h3>
+                      
+                      {itinerary.map((dayPlan, index) => (
+                          <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-purple-100 flex items-center gap-6 transition-all hover:shadow-md">
+                              <div className="flex-shrink-0 w-16 h-16 bg-purple-50 text-purple-700 rounded-xl flex flex-col items-center justify-center font-bold border border-purple-200">
+                                  <span className="text-xs uppercase tracking-wider text-purple-500">Day</span>
+                                  <span className="text-2xl">{dayPlan.day}</span>
+                              </div>
+                              <p className="text-gray-800 text-lg leading-relaxed">
+                                  {dayPlan.activity}
+                              </p>
+                          </div>
+                      ))}
+                      
+                      <button 
+                          onClick={() => setItinerary(null)}
+                          className="mt-6 text-gray-500 hover:text-purple-600 font-medium text-sm text-center w-full transition-colors"
+                      >
+                          Start Over
+                      </button>
+                  </div>
+              )}
           </div>
         )}
 
         {activeTab === 'expenses' && (
-          <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <Wallet className="w-12 h-12 text-emerald-300 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Expense Tracker</h2>
-            <p className="text-slate-500">We will add the form to log costs and calculate who owes who right here.</p>
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            {/* Left Side: Form and Expenses List */}
+            <div className="flex flex-col gap-6">
+              {/* Add Expense Form */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Add an Expense</h3>
+                <form className="flex flex-col gap-4" onSubmit={handleAddExpense}>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <input 
+                      type="text" 
+                      value={expenseDesc}
+                      onChange={(e) => setExpenseDesc(e.target.value)}
+                      placeholder="e.g., Dinner at cafe" 
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
+                    <input 
+                      type="number" 
+                      value={expenseAmount}
+                      onChange={(e) => setExpenseAmount(e.target.value)}
+                      placeholder="0.00" 
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+                      required
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg transition-colors mt-2"
+                  >
+                    Log Expense
+                  </button>
+                </form>
+              </div>
+
+              {/* Recent Expenses List */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Expenses</h3>
+                {expenses.length === 0 ? (
+                  <div className="text-slate-400 text-sm text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                    No expenses logged yet.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
+                    {expenses.map((exp) => (
+                      <div key={exp.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100/50 transition-colors duration-150">
+                        <div>
+                          <p className="font-semibold text-slate-800 text-sm">{exp.description}</p>
+                          <p className="text-xs text-slate-400">Paid by {exp.payer_username || 'Unknown'}</p>
+                        </div>
+                        <span className="font-bold text-emerald-600">${parseFloat(exp.amount).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Side: Balances Summary */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 self-start">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Current Balances</h3>
+              {expenses.length === 0 ? (
+                <div className="text-gray-500 text-center flex flex-col justify-center h-[200px] bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                  <p>No expenses logged yet.</p>
+                  <p className="text-sm mt-1">Add a cost to see the math!</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {Object.entries(calculateBalances()).map(([username, balance]) => (
+                    <div key={username} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                      <span className="font-semibold text-slate-800 text-sm">{username}</span>
+                      <span className={`font-bold text-sm ${balance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {balance >= 0 ? `Owed $${balance.toFixed(2)}` : `Owes $${Math.abs(balance).toFixed(2)}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>

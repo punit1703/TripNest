@@ -26,7 +26,7 @@ const Dashboard = () => {
   const fetchTrips = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get('/trips/user'); // GET /trips/user
+      const response = await api.get('/trips/user/'); // GET /trips/user
       setTrips(response.data);
     } catch (err) {
       setError('Failed to load trips. Please try refreshing.');
@@ -45,7 +45,7 @@ const Dashboard = () => {
     setActionLoading(true);
     try {
       // POST /trips/create
-      await api.post('/trips/create', createData);
+      await api.post('/trips/create/', createData);
       setShowCreateModal(false);
       setCreateData({ name: '', destination: '', total_budget: '', start_date: '', end_date: '' });
       fetchTrips(); // Refresh the list
@@ -61,7 +61,7 @@ const Dashboard = () => {
     setActionLoading(true);
     try {
       // POST /trips/join
-      await api.post('/trips/join', { invite_code: joinCode });
+      await api.post('/trips/join/', { invite_code: joinCode });
       setShowJoinModal(false);
       setJoinCode('');
       fetchTrips(); // Refresh the list
