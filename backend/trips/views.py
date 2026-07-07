@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 from .models import Trip, TripMember, Expense
 from .serializers import TripSerializer, TripDetailSerializer, ExpenseSerializer
 
@@ -141,5 +142,45 @@ class ExpenseListCreate(generics.ListCreateAPIView):
         # When React saves a new expense, automatically link it to the current user and trip!
         trip = Trip.objects.get(id=self.kwargs['trip_id'])
         serializer.save(payer=self.request.user, trip=trip)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def generate_itinerary(request, trip_id):
+    try:
+        trip = Trip.objects.get(id=trip_id)
+        
+        # Our initial rule-based logic engine
+        itinerary = []
+        
+        # Rule 1: Evaluate Destination
+        if trip.destination.lower() == 'spiti':
+            
+            # Rule 2: Evaluate Budget Constraints
+            if trip.total_budget >= 15000:
+                itinerary = [
+                    {"day": 1, "activity": "Arrive in Kaza, acclimatize, and enjoy a premium local dinner."},
+                    {"day": 2, "activity": "Guided 4x4 tour of Key Monastery and Kibber Village."},
+                    {"day": 3, "activity": "Private luxury camp setup at Chandratal Lake."}
+                ]
+            else:
+                itinerary = [
+                    {"day": 1, "activity": "Arrive in Kaza, acclimatize and rest."},
+                    {"day": 2, "activity": "Take the local HRTC bus to visit Key Monastery."},
+                    {"day": 3, "activity": "Shared taxi day trip to Langza and Hikkim."}
+                ]
+        else:
+            # Fallback Rule
+            itinerary = [
+                {"day": 1, "activity": f"Settle into your accommodation in {trip.destination}."},
+                {"day": 2, "activity": "Explore the main city center and local markets."}
+            ]
+
+        # Return the generated schedule to React!
+        return Response({"itinerary": itinerary})
+        
+    except Trip.DoesNotExist:
+        return Response({"error": "Trip not found"}, status=404)
+
 
 

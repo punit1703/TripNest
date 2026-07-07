@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CreateTripView, JoinTripView, TripDetailView, GetUserTripsView, TripAnalyticsView, ExpenseListCreate
+from .views import CreateTripView, JoinTripView, TripDetailView, GetUserTripsView, TripAnalyticsView, ExpenseListCreate, generate_itinerary
 from expenses.views import TripSettlementView
 
 urlpatterns = [
@@ -10,4 +10,5 @@ urlpatterns = [
     path('<int:trip_id>/settlements/', TripSettlementView.as_view(), name='trip-settlements'),
     path('<int:trip_id>/analytics/', TripAnalyticsView.as_view(), name='trip-analytics'),
     path('<int:trip_id>/expenses/', ExpenseListCreate.as_view(), name='trip-expenses'),
+    path('<int:trip_id>/generate-itinerary/', generate_itinerary, name='generate-itinerary'),
 ]

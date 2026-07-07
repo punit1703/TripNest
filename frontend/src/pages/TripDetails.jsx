@@ -107,6 +107,16 @@ const TripDetails = () => {
     }
   };
 
+  const handleGenerateItinerary = async () => {
+    try {
+        const response = await api.post(`/trips/${id}/generate-itinerary/`);
+        console.log("The Expert System says:", response.data);
+        alert("Schedule generated! Check your browser console.");
+    } catch (error) {
+        console.error("Generation failed:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex justify-center items-center">
@@ -233,7 +243,7 @@ const TripDetails = () => {
               </p>
               
               <button
-                  // onClick={handleGenerateItinerary}  <-- We will wire this up next!
+                  onClick={handleGenerateItinerary}
                   className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition-all transform hover:scale-105 shadow-md flex items-center gap-2 mx-auto"
               >
                   Generate My Schedule
