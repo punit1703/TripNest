@@ -1,8 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from users.serializers import UserSerializer
-from .models import Trip, TripMember, Expense
-from ai_planner.serializers import ItinerarySerializer
+from .models import Trip, TripMember, Expense, ItineraryDay
 
 class TripMemberSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -30,10 +29,15 @@ class TripSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'invite_code', 'created_by', 'created_at')
 
+class ItineraryDaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ItineraryDay
+        fields = ['id', 'day_number', 'activity_description']
+
 class TripDetailSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
     members = TripMemberSerializer(source='trip_members', many=True, read_only=True)
-    itineraries = ItinerarySerializer(many=True, read_only=True)
+    itinerary_days = ItineraryDaySerializer(many=True, read_only=True)
 
     class Meta:
         model = Trip
@@ -49,7 +53,7 @@ class TripDetailSerializer(serializers.ModelSerializer):
             'created_by', 
             'created_at', 
             'members',
-            'itineraries'
+            'itinerary_days'
         )
 
 

@@ -14,6 +14,8 @@ const TripDetails = () => {
   const [activeTab, setActiveTab] = useState('overview'); // overview, itinerary, expenses
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState('');
 
   useEffect(() => {
     fetchTripDetails();
@@ -31,6 +33,12 @@ const TripDetails = () => {
       // Fetches the specific trip data based on the URL parameter
       const response = await api.get(`/trips/${id}/`);
       setTrip(response.data);
+      if (response.data.itinerary_days && response.data.itinerary_days.length > 0) {
+        setItinerary(response.data.itinerary_days.map(day => ({
+          day: day.day_number,
+          activity: day.activity_description
+        })));
+      }
     } catch (err) {
       setError('Failed to load trip details.');
     } finally {
@@ -110,11 +118,15 @@ const TripDetails = () => {
 
   const handleGenerateItinerary = async () => {
     try {
+        setIsGenerating(true);
+        setGenerationError('');
         const response = await api.post(`/trips/${id}/generate-itinerary/`);
-        // Instead of logging, we save it to our new state!
         setItinerary(response.data.itinerary); 
-    } catch (error) {
-        console.error("Generation failed:", error);
+    } catch (err) {
+        console.error("Generation failed:", err);
+        setGenerationError(err.response?.data?.error || err.message || "Failed to generate schedule. Please try again.");
+    } finally {
+        setIsGenerating(false);
     }
   };
 
@@ -235,17 +247,36 @@ const TripDetails = () => {
               {!itinerary ? (
                   <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in">
                       <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-3xl">✨</span>
+                          {isGenerating ? (
+                              <Loader2 className="w-8 h-8 text-purple-600 animate-spin mx-auto mt-4" />
+                          ) : (
+                              <span className="text-3xl">✨</span>
+                          )}
                       </div>
                       <h3 className="text-2xl font-bold text-gray-900 mb-2">Magic Itinerary Generator</h3>
                       <p className="text-gray-600 mb-8 max-w-md mx-auto">
                           Let our intelligent system build a custom schedule for <strong className="text-purple-600">{trip.destination}</strong> based on your ${parseFloat(trip.total_budget).toLocaleString()} budget.
                       </p>
+                      
+                      {generationError && (
+                          <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl border border-red-100 mb-6 max-w-md mx-auto">
+                              {generationError}
+                          </div>
+                      )}
+
                       <button
                           onClick={handleGenerateItinerary}
-                          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md mx-auto"
+                          disabled={isGenerating}
+                          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md mx-auto flex items-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
                       >
-                          Generate My Schedule
+                          {isGenerating ? (
+                              <>
+                                  <Loader2 className="w-5 h-5 animate-spin" />
+                                  Creating your plan...
+                              </>
+                          ) : (
+                              "Generate My Schedule"
+                          )}
                       </button>
                   </div>
               ) : (
