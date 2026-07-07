@@ -1,8 +1,9 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Trip, TripMember
-from .serializers import TripSerializer, TripDetailSerializer
+from .models import Trip, TripMember, Expense
+from .serializers import TripSerializer, TripDetailSerializer, ExpenseSerializer
 
 class CreateTripView(generics.CreateAPIView):
     serializer_class = TripSerializer
@@ -126,4 +127,19 @@ class TripAnalyticsView(APIView):
                 "trip_duration_days": duration_days
             }
         })
+
+
+class ExpenseListCreate(generics.ListCreateAPIView):
+    serializer_class = ExpenseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # When React asks for expenses, ONLY return the ones for this specific trip
+        return Expense.objects.filter(trip_id=self.kwargs['trip_id'])
+
+    def perform_create(self, serializer):
+        # When React saves a new expense, automatically link it to the current user and trip!
+        trip = Trip.objects.get(id=self.kwargs['trip_id'])
+        serializer.save(payer=self.request.user, trip=trip)
+
 

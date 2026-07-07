@@ -7,6 +7,8 @@ const TripDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [trip, setTrip] = useState(null);
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
   const [activeTab, setActiveTab] = useState('overview'); // overview, itinerary, expenses
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,6 +27,29 @@ const TripDetails = () => {
       setError('Failed to load trip details.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddExpense = async (e) => {
+    e.preventDefault(); // Prevents the page from reloading
+    
+    try {
+        // Send the data to Django
+        await api.post(`/trips/${id}/expenses/`, {
+            description: expenseDesc,
+            amount: expenseAmount
+        });
+        
+        alert("Expense sent to Django!"); // Temporary success message
+        
+        // Clear the form for the next expense
+        setExpenseDesc('');
+        setExpenseAmount('');
+        
+        // TODO: We will write code here later to refresh the page data
+    } catch (error) {
+        console.error("Error sending expense:", error);
+        alert("Backend not ready yet!");
     }
   };
 
@@ -152,27 +177,31 @@ const TripDetails = () => {
             {/* Left Side: Add Expense Form */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Add an Expense</h3>
-                <form className="flex flex-col gap-4">
+                 <form className="flex flex-col gap-4" onSubmit={handleAddExpense}>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                         <input 
-                            name="description"
                             type="text" 
+                            value={expenseDesc}
+                            onChange={(e) => setExpenseDesc(e.target.value)}
                             placeholder="e.g., Dinner at cafe" 
                             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+                            required
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
                         <input 
-                            name="amount"
                             type="number" 
+                            value={expenseAmount}
+                            onChange={(e) => setExpenseAmount(e.target.value)}
                             placeholder="0.00" 
                             className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+                            required
                         />
                     </div>
                     <button 
-                        type="button" 
+                        type="submit" 
                         className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg transition-colors mt-2"
                     >
                         Log Expense
