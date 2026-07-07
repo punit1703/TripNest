@@ -9,6 +9,7 @@ const TripDetails = () => {
   const [trip, setTrip] = useState(null);
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenses, setExpenses] = useState([]);
   const [activeTab, setActiveTab] = useState('overview'); // overview, itinerary, expenses
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -16,6 +17,12 @@ const TripDetails = () => {
   useEffect(() => {
     fetchTripDetails();
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'expenses') {
+      fetchExpenses();
+    }
+  }, [id, activeTab]);
 
   const fetchTripDetails = async () => {
     try {
@@ -29,6 +36,52 @@ const TripDetails = () => {
       setIsLoading(false);
     }
   };
+
+  const fetchExpenses = async () => {
+    try {
+      const response = await api.get(`/trips/${id}/expenses/`);
+      setExpenses(response.data);
+    } catch (err) {
+      console.error("Failed to load expenses:", err);
+    }
+  };
+
+  const calculateBalances = () => {
+    if (!trip || !trip.members || trip.members.length === 0) return {};
+    
+    const memberCount = trip.members.length;
+    const balances = {};
+    
+    // Initialize balances for all members to 0
+    trip.members.forEach(member => {
+      const username = member.user?.username || member.username || (typeof member === 'string' ? member : 'Unknown');
+      balances[username] = 0;
+    });
+    
+    // Calculate balances from expenses
+    expenses.forEach(exp => {
+      const payerName = exp.payer_username || (exp.payer && exp.payer.username) || 'Unknown';
+      const amount = parseFloat(exp.amount) || 0;
+      const share = amount / memberCount;
+      
+      // Each member owes their share
+      trip.members.forEach(member => {
+        const username = member.user?.username || member.username || (typeof member === 'string' ? member : 'Unknown');
+        balances[username] -= share;
+      });
+      
+      // The payer gets credited the full amount they paid
+      if (balances[payerName] !== undefined) {
+        balances[payerName] += amount;
+      } else {
+        balances[payerName] = amount - share;
+      }
+    });
+    
+    return balances;
+  };
+
+
 
   const handleAddExpense = async (e) => {
     e.preventDefault(); // Prevents the page from reloading
@@ -46,7 +99,8 @@ const TripDetails = () => {
         setExpenseDesc('');
         setExpenseAmount('');
         
-        // TODO: We will write code here later to refresh the page data
+        // Refresh the page data
+        fetchExpenses();
     } catch (error) {
         console.error("Error sending expense:", error);
         alert("Backend not ready yet!");
@@ -165,57 +219,110 @@ const TripDetails = () => {
         )}
 
         {activeTab === 'itinerary' && (
-          <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm text-center">
-            <Sparkles className="w-12 h-12 text-purple-300 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">AI Travel Planner</h2>
-            <p className="text-slate-500">Your day-by-day schedule will appear here. We will integrate the AI planner next!</p>
+          <div className="mt-8 bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center animate-fade-in">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">✨</span>
+              </div>
+              
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Magic Itinerary Generator
+              </h3>
+              
+              <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                  Let our intelligent system build a custom, day-by-day schedule for your trip to <strong className="text-purple-600">{trip.destination}</strong> based on your ${parseFloat(trip.total_budget).toLocaleString()} budget.
+              </p>
+              
+              <button
+                  // onClick={handleGenerateItinerary}  <-- We will wire this up next!
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition-all transform hover:scale-105 shadow-md flex items-center gap-2 mx-auto"
+              >
+                  Generate My Schedule
+              </button>
           </div>
         )}
 
         {activeTab === 'expenses' && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-            {/* Left Side: Add Expense Form */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            {/* Left Side: Form and Expenses List */}
+            <div className="flex flex-col gap-6">
+              {/* Add Expense Form */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Add an Expense</h3>
-                 <form className="flex flex-col gap-4" onSubmit={handleAddExpense}>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                        <input 
-                            type="text" 
-                            value={expenseDesc}
-                            onChange={(e) => setExpenseDesc(e.target.value)}
-                            placeholder="e.g., Dinner at cafe" 
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
-                        <input 
-                            type="number" 
-                            value={expenseAmount}
-                            onChange={(e) => setExpenseAmount(e.target.value)}
-                            placeholder="0.00" 
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
-                            required
-                        />
-                    </div>
-                    <button 
-                        type="submit" 
-                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg transition-colors mt-2"
-                    >
-                        Log Expense
-                    </button>
+                <form className="flex flex-col gap-4" onSubmit={handleAddExpense}>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <input 
+                      type="text" 
+                      value={expenseDesc}
+                      onChange={(e) => setExpenseDesc(e.target.value)}
+                      placeholder="e.g., Dinner at cafe" 
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
+                    <input 
+                      type="number" 
+                      value={expenseAmount}
+                      onChange={(e) => setExpenseAmount(e.target.value)}
+                      placeholder="0.00" 
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+                      required
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg transition-colors mt-2"
+                  >
+                    Log Expense
+                  </button>
                 </form>
+              </div>
+
+              {/* Recent Expenses List */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Expenses</h3>
+                {expenses.length === 0 ? (
+                  <div className="text-slate-400 text-sm text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                    No expenses logged yet.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
+                    {expenses.map((exp) => (
+                      <div key={exp.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100/50 transition-colors duration-150">
+                        <div>
+                          <p className="font-semibold text-slate-800 text-sm">{exp.description}</p>
+                          <p className="text-xs text-slate-400">Paid by {exp.payer_username || 'Unknown'}</p>
+                        </div>
+                        <span className="font-bold text-emerald-600">${parseFloat(exp.amount).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Side: Balances Summary */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Current Balances</h3>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 self-start">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Current Balances</h3>
+              {expenses.length === 0 ? (
                 <div className="text-gray-500 text-center flex flex-col justify-center h-[200px] bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                    <p>No expenses logged yet.</p>
-                    <p className="text-sm mt-1">Add a cost to see the math!</p>
+                  <p>No expenses logged yet.</p>
+                  <p className="text-sm mt-1">Add a cost to see the math!</p>
                 </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {Object.entries(calculateBalances()).map(([username, balance]) => (
+                    <div key={username} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                      <span className="font-semibold text-slate-800 text-sm">{username}</span>
+                      <span className={`font-bold text-sm ${balance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {balance >= 0 ? `Owed $${balance.toFixed(2)}` : `Owes $${Math.abs(balance).toFixed(2)}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
