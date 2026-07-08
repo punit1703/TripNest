@@ -9,6 +9,9 @@ from rest_framework.decorators import api_view, permission_classes
 from .models import Trip, TripMember, Expense, ItineraryDay
 from .serializers import TripSerializer, TripDetailSerializer, ExpenseSerializer
 
+# Configure your AI Key (Paste your actual key inside the quotes!)
+genai.configure(api_key="YOUR_COPIED_API_KEY_HERE")
+
 class CreateTripView(generics.CreateAPIView):
     serializer_class = TripSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -252,73 +255,48 @@ def generate_itinerary(request, trip_id):
         # 1. Clear any old schedule if they are generating a new one
         trip.itinerary_days.all().delete()
 
-        api_key = os.environ.get("GEMINI_API_KEY", "YOUR_COPIED_API_KEY_HERE")
-        use_mock = not api_key or api_key == "YOUR_COPIED_API_KEY_HERE"
+        # 2. Write the Prompt for the AI
+        # Note: Changed trip.budget to trip.total_budget to match DB model field
+        prompt = f"""
+        You are an expert travel planner. Create a day-by-day itinerary for a trip to {trip.destination}.
+        The total budget for the trip is ${trip.total_budget}.
+        The trip dates are from {trip.start_date} to {trip.end_date}. 
         
-        days_data = []
-        if use_mock:
-            days_data = generate_mock_itinerary(trip)
-        else:
-            try:
-                # 2. Write the Prompt for the AI
-                prompt = f"""
-                You are an expert travel planner. Create a day-by-day itinerary for a trip to {trip.destination}.
-                The total budget for the trip is ${trip.total_budget}.
-                The trip dates are from {trip.start_date} to {trip.end_date}. 
-                
-                Respond ONLY with a valid, raw JSON array of objects. Do not include markdown formatting like ```json.
-                Each object must have exactly two keys: "day_number" (an integer) and "activity_description" (a string detailing the plan).
-                """
+        Respond ONLY with a valid, raw JSON array of objects. Do not include markdown formatting like ```json.
+        Each object must have exactly two keys: "day_number" (an integer) and "activity_description" (a string detailing the plan).
+        """
 
-                # 3. Call the Gemini AI
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                response = model.generate_content(prompt)
-                
-                # 4. Parse the AI's response into Python data
-                ai_text = response.text.strip()
-                
-                # Clean markdown formatting if model returned it despite instructions
-                if ai_text.startswith('```json'):
-                    ai_text = ai_text[7:]
-                if ai_text.startswith('```'):
-                    ai_text = ai_text[3:]
-                if ai_text.endswith('```'):
-                    ai_text = ai_text[:-3]
-                ai_text = ai_text.strip()
-                
-                days_data = json.loads(ai_text)
-            except Exception as e:
-                # Log error and use mock generator as fallback
-                print(f"Gemini generation failed: {e}. Falling back to mock generator.")
-                days_data = generate_mock_itinerary(trip)
+        # 3. Call the Gemini AI
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
         
-        saved_days = []
-        for day in days_data:
-            day_number = day.get('day_number')
-            activity_description = day.get('activity_description')
+        # 4. Parse the AI's response into Python data
+        ai_text = response.text.strip()
+        if ai_text.startswith('```json'): # Strip markdown if the AI accidentally adds it
+            ai_text = ai_text[7:-3]
             
-            itinerary_day = ItineraryDay(
+        schedule_data = json.loads(ai_text)
+
+        # 5. Save the AI's thoughts permanently into your Database!
+        formatted_for_react = []
+        for day in schedule_data:
+            # Save to SQLite
+            new_day = ItineraryDay.objects.create(
                 trip=trip,
-                day_number=day_number,
-                activity_description=activity_description
+                day_number=day['day_number'],
+                activity_description=day['activity_description']
             )
-            saved_days.append(itinerary_day)
-            
-        ItineraryDay.objects.bulk_create(saved_days)
-        
-        # Format output to match React's expected structure
-        itinerary_response = [
-            {"day": d.day_number, "activity": d.activity_description}
-            for d in saved_days
-        ]
-        
-        return Response({"itinerary": itinerary_response})
-        
-    except Trip.DoesNotExist:
-        return Response({"error": "Trip not found"}, status=404)
-    except json.JSONDecodeError:
-        return Response({"error": "Failed to parse AI itinerary response as JSON"}, status=500)
+            # Format exactly how React expects it
+            formatted_for_react.append({
+                "day": new_day.day_number,
+                "activity": new_day.activity_description
+            })
+
+        # Send it back to the frontend!
+        return Response({"itinerary": formatted_for_react})
+
     except Exception as e:
+        print("AI Error:", e) # Prints the exact error in your VS Code terminal if something breaks
         return Response({"error": str(e)}, status=500)
 
 
