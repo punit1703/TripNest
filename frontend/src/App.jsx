@@ -17,12 +17,12 @@ function App() {
       <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/trips/:id" element={<ProtectedRoute><TripDetails /></ProtectedRoute>} />
           
           <Route path="*" element={<Navigate to="/" />} />

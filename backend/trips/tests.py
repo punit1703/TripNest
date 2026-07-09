@@ -129,3 +129,22 @@ class TripTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
 
+    def test_trips_base_endpoint_list_and_create(self):
+        # Authenticate user
+        self.client.force_authenticate(user=self.user_creator)
+        
+        # Test creating a trip via POST to /trips/
+        base_url = '/trips/'
+        response = self.client.post(base_url, self.trip_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], self.trip_data['name'])
+        self.assertIn('budget', response.data)
+        self.assertEqual(float(response.data['budget']), float(self.trip_data['total_budget']))
+        
+        # Test listing trips via GET to /trips/
+        list_response = self.client.get(base_url)
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]['name'], self.trip_data['name'])
+        self.assertIn('budget', list_response.data[0])
+

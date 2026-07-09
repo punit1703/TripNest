@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import CreateTripView, JoinTripView, TripDetailView, GetUserTripsView, TripAnalyticsView, ExpenseListCreate, generate_itinerary
+from .views import CreateTripView, JoinTripView, TripDetailView, GetUserTripsView, TripAnalyticsView, ExpenseListCreate, generate_itinerary, TripListCreate
 from expenses.views import TripSettlementView
 
 urlpatterns = [
+    path('', TripListCreate.as_view(), name='trip-list-create'),
     path('create/', CreateTripView.as_view(), name='trip-create'),
     path('join/', JoinTripView.as_view(), name='trip-join'),
     path('user/', GetUserTripsView.as_view(), name='trip-user-list'),
