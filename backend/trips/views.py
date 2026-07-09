@@ -87,6 +87,18 @@ class GetUserTripsView(generics.ListAPIView):
         # Return all trips where the user is a member
         return Trip.objects.filter(trip_members__user=self.request.user).order_by('-created_at')
 
+class TripListCreate(generics.ListCreateAPIView):
+    serializer_class = TripSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Only return trips where the current user is in the 'members' list
+        return Trip.objects.filter(trip_members__user=self.request.user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        trip = serializer.save(created_by=self.request.user)
+        TripMember.objects.get_or_create(trip=trip, user=self.request.user)
+
 from django.db.models import Sum
 
 class TripAnalyticsView(APIView):

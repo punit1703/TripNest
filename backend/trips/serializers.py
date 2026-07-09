@@ -12,6 +12,7 @@ class TripMemberSerializer(serializers.ModelSerializer):
 
 class TripSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
+    budget = serializers.DecimalField(source='total_budget', max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = Trip
@@ -23,6 +24,7 @@ class TripSerializer(serializers.ModelSerializer):
             'start_date', 
             'end_date', 
             'total_budget', 
+            'budget',
             'invite_code', 
             'created_by', 
             'created_at'
