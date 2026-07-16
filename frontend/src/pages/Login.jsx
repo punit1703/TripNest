@@ -25,8 +25,8 @@ const handleChange = (e) => {
       // Store the JWT token
       localStorage.setItem('token', response.data.tokens?.access || response.data.access || response.data.token);
       
-      // Redirect to the protected dashboard
-      navigate('/dashboard');
+      // Redirect to the profile page
+      navigate('/');
     } catch (err) {
       setError(err.response?.data?.detail || err.response?.data?.error || 'Invalid email or password. Please try again.');
     } finally {

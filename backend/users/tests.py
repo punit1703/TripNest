@@ -98,3 +98,50 @@ class AuthenticationTests(APITestCase):
         self.assertEqual(response.data['username'], 'existinguser')
         self.assertEqual(response.data['email'], 'existing@example.com')
 
+    def test_update_profile_success(self):
+        login_data = {
+            'username': 'existinguser',
+            'password': 'existingpassword123'
+        }
+        login_response = self.client.post(self.login_url, login_data, format='json')
+        token = login_response.data['tokens']['access']
+        
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        
+        update_data = {
+            'first_name': 'UpdatedFirst',
+            'last_name': 'UpdatedLast',
+            'email': 'updated@example.com'
+        }
+        response = self.client.put(self.profile_url, update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['first_name'], 'UpdatedFirst')
+        self.assertEqual(response.data['last_name'], 'UpdatedLast')
+        self.assertEqual(response.data['email'], 'updated@example.com')
+        self.assertEqual(response.data['username'], 'existinguser')
+
+    def test_update_profile_duplicate_email(self):
+        User.objects.create_user(
+            username='otheruser',
+            email='other@example.com',
+            password='otherpassword123'
+        )
+        
+        login_data = {
+            'username': 'existinguser',
+            'password': 'existingpassword123'
+        }
+        login_response = self.client.post(self.login_url, login_data, format='json')
+        token = login_response.data['tokens']['access']
+        
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        
+        update_data = {
+            'email': 'other@example.com'
+        }
+        response = self.client.put(self.profile_url, update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', response.data)
+

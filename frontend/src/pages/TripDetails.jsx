@@ -142,8 +142,8 @@ const TripDetails = () => {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6">
         <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-100 mb-4">{error}</div>
-        <button onClick={() => navigate('/dashboard')} className="text-purple-600 font-medium hover:underline">
-          &larr; Back to Dashboard
+        <button onClick={() => navigate('/')} className="text-purple-600 font-medium hover:underline">
+          &larr; Back to Profile
         </button>
       </div>
     );
@@ -154,7 +154,7 @@ const TripDetails = () => {
       {/* Navigation Header */}
       <nav className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-40 shadow-sm">
         <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-all">
+          <button onClick={() => navigate('/')} className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-all">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="text-xl font-bold text-slate-900 truncate">{trip.name}</div>

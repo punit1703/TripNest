@@ -5,6 +5,17 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'first_name', 'last_name')
+        read_only_fields = ('username',)
+
+    def validate_email(self, value):
+        user = self.instance
+        if user:
+            if User.objects.filter(email=value).exclude(id=user.id).exists():
+                raise serializers.ValidationError("A user with this email already exists.")
+        else:
+            if User.objects.filter(email=value).exists():
+                raise serializers.ValidationError("A user with this email already exists.")
+        return value
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
