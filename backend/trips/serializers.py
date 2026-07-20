@@ -62,8 +62,30 @@ class TripDetailSerializer(serializers.ModelSerializer):
 class ExpenseSerializer(serializers.ModelSerializer):
     # This magically grabs the username of whoever paid, so we can display their name!
     payer_username = serializers.ReadOnlyField(source='payer.username')
+    recipient_username = serializers.ReadOnlyField(source='recipient.username')
 
     class Meta:
         model = Expense
-        fields = ['id', 'description', 'amount', 'payer', 'payer_username', 'date_logged']
+        fields = ['id', 'description', 'amount', 'payer', 'payer_username', 'is_settlement', 'recipient', 'recipient_username', 'date_logged']
         read_only_fields = ['payer'] # We will set the payer automatically so users can't forge it
+
+    def validate(self, attrs):
+        is_settlement = attrs.get('is_settlement', False)
+        recipient = attrs.get('recipient', None)
+        payer = attrs.get('payer', self.context['request'].user if 'request' in self.context else None)
+
+        if is_settlement:
+            if not recipient:
+                raise serializers.ValidationError("A recipient is required for settlements.")
+            if payer and payer == recipient:
+                raise serializers.ValidationError("You cannot settle up with yourself.")
+
+            view = self.context.get('view')
+            if view:
+                trip_id = view.kwargs.get('trip_id')
+                if trip_id:
+                    if not TripMember.objects.filter(trip_id=trip_id, user=recipient).exists():
+                        raise serializers.ValidationError("Recipient must be a member of the trip.")
+                    if payer and not TripMember.objects.filter(trip_id=trip_id, user=payer).exists():
+                        raise serializers.ValidationError("Payer must be a member of the trip.")
+        return attrs
