@@ -308,8 +308,23 @@ def generate_itinerary(request, trip_id):
         return Response({"itinerary": formatted_for_react})
 
     except Exception as e:
-        print("AI Error:", e) # Prints the exact error in your VS Code terminal if something breaks
-        return Response({"error": str(e)}, status=500)
+        print("AI Error, falling back to mock itinerary generator:", e)
+        try:
+            schedule_data = generate_mock_itinerary(trip)
+            formatted_for_react = []
+            for day in schedule_data:
+                new_day = ItineraryDay.objects.create(
+                    trip=trip,
+                    day_number=day['day_number'],
+                    activity_description=day['activity_description']
+                )
+                formatted_for_react.append({
+                    "day": new_day.day_number,
+                    "activity": new_day.activity_description
+                })
+            return Response({"itinerary": formatted_for_react})
+        except Exception as mock_e:
+            return Response({"error": f"AI Generation failed and fallback also failed: {str(mock_e)}"}, status=500)
 
 
 
