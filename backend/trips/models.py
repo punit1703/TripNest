@@ -72,10 +72,14 @@ class ItineraryDay(models.Model):
     # The actual AI-generated plan
     activity_description = models.TextField()
 
+    # Location coordinates for mapping
+    location_name = models.CharField(max_length=255, blank=True, null=True)
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+
     class Meta:
         # This ensures the database always hands the days back in the correct 1, 2, 3 order!
         ordering = ['day_number'] 
 
     def __str__(self):
         return f"Day {self.day_number} in {self.trip.destination}"
-
