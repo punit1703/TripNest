@@ -440,44 +440,78 @@ const TripDetails = () => {
                           {/* Mapped Interactive Route */}
                           <TripMap itineraryDays={itinerary} destinationName={trip.destination} />
 
-                          <div className="flex items-center justify-between px-2 pt-2">
-                            <h3 className="text-xl font-bold text-gray-900">Your AI-Generated Schedule</h3>
-                            <span className="text-xs text-purple-600 font-bold bg-purple-50 px-3 py-1 rounded-full border border-purple-100 flex items-center gap-1">
-                              <MapIcon className="w-3.5 h-3.5" /> Interactive Map Mapped
-                            </span>
+                          <div className="flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
+                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                              Your AI-Generated Schedule
+                              <span className="text-xs text-purple-600 font-bold bg-purple-50 px-3 py-1 rounded-full border border-purple-100 flex items-center gap-1">
+                                <MapIcon className="w-3.5 h-3.5" /> Interactive Map Mapped
+                              </span>
+                            </h3>
+
+                            <div className="flex items-center gap-2">
+                              <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={handleExportPDF}
+                                disabled={isExportingPdf}
+                                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-4 rounded-xl text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-75"
+                              >
+                                {isExportingPdf ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Generating PDF...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="w-4 h-4" />
+                                    Export to PDF
+                                  </>
+                                )}
+                              </motion.button>
+                            </div>
                           </div>
                           
-                          <motion.div 
-                            variants={containerVariants}
-                            initial="hidden"
-                            animate="show"
-                            className="space-y-4"
-                          >
-                            {itinerary.map((dayPlan, index) => (
-                                <motion.div 
-                                  variants={itemVariants}
-                                  whileHover={{ scale: 1.01, x: 2 }}
-                                  key={index} 
-                                  className="bg-white p-6 rounded-2xl shadow-sm border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center gap-5 transition-all hover:shadow-md"
-                                >
-                                    <div className="flex-shrink-0 w-16 h-16 bg-purple-50 text-purple-700 rounded-2xl flex flex-col items-center justify-center font-bold border border-purple-200 shadow-sm">
-                                        <span className="text-[10px] uppercase tracking-wider text-purple-500 font-extrabold">Day</span>
-                                        <span className="text-2xl font-black">{dayPlan.day}</span>
-                                    </div>
-                                    <div className="flex-1">
-                                      {dayPlan.location_name && (
-                                        <div className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-100/70 px-2.5 py-0.5 rounded-md mb-2">
-                                          <MapPin className="w-3 h-3 text-purple-600" />
-                                          {dayPlan.location_name}
-                                        </div>
-                                      )}
-                                      <p className="text-slate-800 text-base leading-relaxed">
-                                          {dayPlan.activity}
-                                      </p>
-                                    </div>
-                                </motion.div>
-                            ))}
-                          </motion.div>
+                          <div id="itinerary-pdf-container" className="space-y-4 p-4 bg-white rounded-3xl border border-purple-50">
+                            <div className="border-b border-purple-100 pb-4 mb-4">
+                              <h2 className="text-2xl font-bold text-slate-900">{trip.name} - Itinerary</h2>
+                              <p className="text-sm text-slate-500 font-medium">
+                                Destination: {trip.destination} | Dates: {trip.start_date} to {trip.end_date} | Budget: ${parseFloat(trip.total_budget).toLocaleString()}
+                              </p>
+                            </div>
+
+                            <motion.div 
+                              variants={containerVariants}
+                              initial="hidden"
+                              animate="show"
+                              className="space-y-4"
+                            >
+                              {itinerary.map((dayPlan, index) => (
+                                  <motion.div 
+                                    variants={itemVariants}
+                                    whileHover={{ scale: 1.01, x: 2 }}
+                                    key={index} 
+                                    className="bg-white p-6 rounded-2xl shadow-sm border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center gap-5 transition-all hover:shadow-md"
+                                  >
+                                      <div className="flex-shrink-0 w-16 h-16 bg-purple-50 text-purple-700 rounded-2xl flex flex-col items-center justify-center font-bold border border-purple-200 shadow-sm">
+                                          <span className="text-[10px] uppercase tracking-wider text-purple-500 font-extrabold">Day</span>
+                                          <span className="text-2xl font-black">{dayPlan.day}</span>
+                                      </div>
+                                      <div className="flex-1">
+                                        {dayPlan.location_name && (
+                                          <div className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-100/70 px-2.5 py-0.5 rounded-md mb-2">
+                                            <MapPin className="w-3 h-3 text-purple-600" />
+                                            {dayPlan.location_name}
+                                          </div>
+                                        )}
+                                        <p className="text-slate-800 text-base leading-relaxed">
+                                            {dayPlan.activity}
+                                        </p>
+                                      </div>
+                                  </motion.div>
+                              ))}
+                            </motion.div>
+                          </div>
+
                           
                           <motion.button 
                               whileHover={{ scale: 1.02 }}
