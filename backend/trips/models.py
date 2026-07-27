@@ -51,6 +51,10 @@ class Expense(models.Model):
     description = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     
+    # Fields to support payments and settlements
+    is_settlement = models.BooleanField(default=False)
+    recipient = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='trips_received_payments')
+    
     # Automatically logs the exact date and time
     date_logged = models.DateTimeField(auto_now_add=True)
 
@@ -68,10 +72,44 @@ class ItineraryDay(models.Model):
     # The actual AI-generated plan
     activity_description = models.TextField()
 
+    # Location coordinates for mapping
+    location_name = models.CharField(max_length=255, blank=True, null=True)
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+
     class Meta:
         # This ensures the database always hands the days back in the correct 1, 2, 3 order!
         ordering = ['day_number'] 
 
     def __str__(self):
         return f"Day {self.day_number} in {self.trip.destination}"
+
+
+class PackingItem(models.Model):
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='packing_items')
+    item_name = models.CharField(max_length=255)
+    category = models.CharField(max_length=100, default='General')
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_packing_items')
+    is_packed = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_packing_items')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['is_packed', '-created_at']
+
+    def __str__(self):
+        return f"{self.item_name} ({self.trip.name})"
+
+
+class ChatMessage(models.Model):
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='chat_messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_chat_messages')
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp']
+
+    def __str__(self):
+        return f"[{self.trip.name}] {self.sender.username}: {self.message[:30]}"
 

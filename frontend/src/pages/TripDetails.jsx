@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Calendar, DollarSign, Users, Wallet, Sparkles, Receipt, Loader2, Key } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, DollarSign, Users, Wallet, Sparkles, Receipt, Loader2, Key, ArrowLeftRight, X, Map as MapIcon, Package, MessageSquare, Download, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import api from '../services/api';
+import TripMap from '../components/TripMap';
+import PackingList from '../components/PackingList';
+import TripChat from '../components/TripChat';
+
+
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -30,10 +37,74 @@ const TripDetails = () => {
   const [error, setError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  // Settle Up States
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isSettleOpen, setIsSettleOpen] = useState(false);
+  const [settleLoading, setSettleLoading] = useState(false);
+  const [settleError, setSettleError] = useState('');
+  const [settleForm, setSettleForm] = useState({ recipient: '', amount: '' });
+
+  const handleExportPDF = async () => {
+    const element = document.getElementById('itinerary-pdf-container');
+    if (!element) return;
+
+    try {
+      setIsExportingPdf(true);
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      const fileName = `${(trip?.name || 'Trip').replace(/[^a-zA-Z0-9]/g, '_')}_Itinerary.pdf`;
+      pdf.save(fileName);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      window.print();
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
 
   useEffect(() => {
     fetchTripDetails();
+    fetchCurrentUser();
   }, [id]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await api.get('/profile/');
+      setCurrentUser(response.data);
+    } catch (err) {
+      console.error("Failed to fetch current user:", err);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'expenses') {
@@ -50,7 +121,10 @@ const TripDetails = () => {
       if (response.data.itinerary_days && response.data.itinerary_days.length > 0) {
         setItinerary(response.data.itinerary_days.map(day => ({
           day: day.day_number,
-          activity: day.activity_description
+          activity: day.activity_description,
+          location_name: day.location_name,
+          latitude: day.latitude,
+          longitude: day.longitude
         })));
       }
     } catch (err) {
@@ -85,19 +159,33 @@ const TripDetails = () => {
     expenses.forEach(exp => {
       const payerName = exp.payer_username || (exp.payer && exp.payer.username) || 'Unknown';
       const amount = parseFloat(exp.amount) || 0;
-      const share = amount / memberCount;
       
-      // Each member owes their share
-      trip.members.forEach(member => {
-        const username = member.user?.username || member.username || (typeof member === 'string' ? member : 'Unknown');
-        balances[username] -= share;
-      });
-      
-      // The payer gets credited the full amount they paid
-      if (balances[payerName] !== undefined) {
-        balances[payerName] += amount;
+      if (exp.is_settlement) {
+        const recipientName = exp.recipient_username || (exp.recipient && exp.recipient.username) || 'Unknown';
+        
+        // Payer gets credited the full amount they paid
+        if (balances[payerName] !== undefined) {
+          balances[payerName] += amount;
+        }
+        // Recipient gets debited the amount they received
+        if (balances[recipientName] !== undefined) {
+          balances[recipientName] -= amount;
+        }
       } else {
-        balances[payerName] = amount - share;
+        const share = amount / memberCount;
+        
+        // Each member owes their share
+        trip.members.forEach(member => {
+          const username = member.user?.username || member.username || (typeof member === 'string' ? member : 'Unknown');
+          balances[username] -= share;
+        });
+        
+        // The payer gets credited the full amount they paid
+        if (balances[payerName] !== undefined) {
+          balances[payerName] += amount;
+        } else {
+          balances[payerName] = amount - share;
+        }
       }
     });
     
@@ -127,6 +215,28 @@ const TripDetails = () => {
     } catch (error) {
         console.error("Error sending expense:", error);
         alert("Backend not ready yet!");
+    }
+  };
+
+  const handleSettleSubmit = async (e) => {
+    e.preventDefault();
+    setSettleLoading(true);
+    setSettleError('');
+    try {
+      await api.post(`/trips/${id}/expenses/`, {
+        description: 'Settle Up Payment',
+        amount: settleForm.amount,
+        is_settlement: true,
+        recipient: settleForm.recipient
+      });
+      setIsSettleOpen(false);
+      setSettleForm({ recipient: '', amount: '' });
+      fetchExpenses();
+    } catch (err) {
+      console.error("Failed to submit settlement:", err);
+      setSettleError(err.response?.data?.error || err.response?.data?.detail || "Failed to log payment.");
+    } finally {
+      setSettleLoading(false);
     }
   };
 
@@ -167,13 +277,22 @@ const TripDetails = () => {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20">
       {/* Navigation Header */}
       <nav className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-all cursor-pointer">
-            <ArrowLeft className="w-5 h-5" />
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate('/')} className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-all cursor-pointer">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="text-xl font-bold text-slate-900 truncate">{trip.name}</div>
+          </div>
+          <button 
+            onClick={() => navigate('/profile')} 
+            className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-full text-xs font-bold transition-all cursor-pointer border border-purple-200/50"
+          >
+            <Users className="w-4 h-4" /> My Profile
           </button>
-          <div className="text-xl font-bold text-slate-900 truncate">{trip.name}</div>
         </div>
       </nav>
+
 
       {/* Trip Header Banner */}
       <motion.header 
@@ -212,10 +331,12 @@ const TripDetails = () => {
 
       {/* Tabs Navigation */}
       <div className="max-w-5xl mx-auto px-6 mb-8">
-        <div className="flex gap-2 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm relative">
+        <div className="flex flex-wrap gap-2 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm relative">
           <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Users />} label="Overview & Members" />
           <TabButton active={activeTab === 'itinerary'} onClick={() => setActiveTab('itinerary')} icon={<Sparkles />} label="AI Itinerary" />
           <TabButton active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} icon={<Receipt />} label="Expenses & Balances" />
+          <TabButton active={activeTab === 'packing'} onClick={() => setActiveTab('packing')} icon={<Package />} label="Packing List" />
+          <TabButton active={activeTab === 'chat'} onClick={() => setActiveTab('chat')} icon={<MessageSquare />} label="Group Chat" />
         </div>
       </div>
 
@@ -323,33 +444,83 @@ const TripDetails = () => {
                           </motion.button>
                       </motion.div>
                   ) : (
-                      /* If we DO have an itinerary, display the day-by-day plan! */
-                      <div className="space-y-4">
-                          <h3 className="text-xl font-bold text-gray-900 mb-4 px-2">Your AI-Generated Schedule</h3>
+                      /* If we DO have an itinerary, display the interactive map and day-by-day plan! */
+                      <div className="space-y-6">
+                          {/* Mapped Interactive Route */}
+                          <TripMap itineraryDays={itinerary} destinationName={trip.destination} />
+
+                          <div className="flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
+                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                              Your AI-Generated Schedule
+                              <span className="text-xs text-purple-600 font-bold bg-purple-50 px-3 py-1 rounded-full border border-purple-100 flex items-center gap-1">
+                                <MapIcon className="w-3.5 h-3.5" /> Interactive Map Mapped
+                              </span>
+                            </h3>
+
+                            <div className="flex items-center gap-2">
+                              <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={handleExportPDF}
+                                disabled={isExportingPdf}
+                                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-4 rounded-xl text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-75"
+                              >
+                                {isExportingPdf ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Generating PDF...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="w-4 h-4" />
+                                    Export to PDF
+                                  </>
+                                )}
+                              </motion.button>
+                            </div>
+                          </div>
                           
-                          <motion.div 
-                            variants={containerVariants}
-                            initial="hidden"
-                            animate="show"
-                            className="space-y-4"
-                          >
-                            {itinerary.map((dayPlan, index) => (
-                                <motion.div 
-                                  variants={itemVariants}
-                                  whileHover={{ scale: 1.01, x: 2 }}
-                                  key={index} 
-                                  className="bg-white p-6 rounded-xl shadow-sm border border-purple-100 flex items-center gap-6 transition-all hover:shadow-md"
-                                >
-                                    <div className="flex-shrink-0 w-16 h-16 bg-purple-50 text-purple-700 rounded-xl flex flex-col items-center justify-center font-bold border border-purple-200">
-                                        <span className="text-xs uppercase tracking-wider text-purple-500">Day</span>
-                                        <span className="text-2xl">{dayPlan.day}</span>
-                                    </div>
-                                    <p className="text-gray-800 text-lg leading-relaxed">
-                                        {dayPlan.activity}
-                                    </p>
-                                </motion.div>
-                            ))}
-                          </motion.div>
+                          <div id="itinerary-pdf-container" className="space-y-4 p-4 bg-white rounded-3xl border border-purple-50">
+                            <div className="border-b border-purple-100 pb-4 mb-4">
+                              <h2 className="text-2xl font-bold text-slate-900">{trip.name} - Itinerary</h2>
+                              <p className="text-sm text-slate-500 font-medium">
+                                Destination: {trip.destination} | Dates: {trip.start_date} to {trip.end_date} | Budget: ${parseFloat(trip.total_budget).toLocaleString()}
+                              </p>
+                            </div>
+
+                            <motion.div 
+                              variants={containerVariants}
+                              initial="hidden"
+                              animate="show"
+                              className="space-y-4"
+                            >
+                              {itinerary.map((dayPlan, index) => (
+                                  <motion.div 
+                                    variants={itemVariants}
+                                    whileHover={{ scale: 1.01, x: 2 }}
+                                    key={index} 
+                                    className="bg-white p-6 rounded-2xl shadow-sm border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center gap-5 transition-all hover:shadow-md"
+                                  >
+                                      <div className="flex-shrink-0 w-16 h-16 bg-purple-50 text-purple-700 rounded-2xl flex flex-col items-center justify-center font-bold border border-purple-200 shadow-sm">
+                                          <span className="text-[10px] uppercase tracking-wider text-purple-500 font-extrabold">Day</span>
+                                          <span className="text-2xl font-black">{dayPlan.day}</span>
+                                      </div>
+                                      <div className="flex-1">
+                                        {dayPlan.location_name && (
+                                          <div className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-100/70 px-2.5 py-0.5 rounded-md mb-2">
+                                            <MapPin className="w-3 h-3 text-purple-600" />
+                                            {dayPlan.location_name}
+                                          </div>
+                                        )}
+                                        <p className="text-slate-800 text-base leading-relaxed">
+                                            {dayPlan.activity}
+                                        </p>
+                                      </div>
+                                  </motion.div>
+                              ))}
+                            </motion.div>
+                          </div>
+
                           
                           <motion.button 
                               whileHover={{ scale: 1.02 }}
@@ -369,7 +540,26 @@ const TripDetails = () => {
                 <div className="flex flex-col gap-6">
                   {/* Add Expense Form */}
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Add an Expense</h3>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-gray-900">Add an Expense</h3>
+                      <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setIsSettleOpen(true);
+                          // Prefill recipient with the first non-current member
+                          const otherMember = trip.members.find(m => {
+                            const uname = m.user?.username || m.username || m;
+                            return uname !== currentUser?.username;
+                          });
+                          const otherId = otherMember?.user?.id || otherMember?.id || '';
+                          setSettleForm({ recipient: otherId, amount: '' });
+                        }}
+                        className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200/50 text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <ArrowLeftRight className="w-3.5 h-3.5" /> Settle Up
+                      </motion.button>
+                    </div>
                     <form className="flex flex-col gap-4" onSubmit={handleAddExpense}>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -423,13 +613,38 @@ const TripDetails = () => {
                             variants={itemVariants}
                             whileHover={{ scale: 1.01 }}
                             key={exp.id} 
-                            className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100/50 transition-colors duration-150"
+                            className={`flex justify-between items-center p-3 rounded-xl border transition-colors duration-150 ${
+                              exp.is_settlement 
+                                ? 'bg-emerald-50/50 border-emerald-100/50 hover:bg-emerald-50' 
+                                : 'bg-slate-50 border-slate-100 hover:bg-slate-100/50'
+                            }`}
                           >
-                            <div>
-                              <p className="font-semibold text-slate-800 text-sm">{exp.description}</p>
-                              <p className="text-xs text-slate-400">Paid by {exp.payer_username || 'Unknown'}</p>
+                            <div className="flex items-center gap-3">
+                              {exp.is_settlement ? (
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                  <ArrowLeftRight className="w-4 h-4" />
+                                </div>
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+                                  <Receipt className="w-4 h-4" />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-slate-800 text-sm">
+                                  {exp.is_settlement 
+                                    ? `${exp.payer_username} settled up` 
+                                    : exp.description}
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                  {exp.is_settlement 
+                                    ? `Paid ${exp.recipient_username}` 
+                                    : `Paid by ${exp.payer_username}`}
+                                </p>
+                              </div>
                             </div>
-                            <span className="font-bold text-emerald-600">${parseFloat(exp.amount).toFixed(2)}</span>
+                            <span className={`font-bold ${exp.is_settlement ? 'text-emerald-600' : 'text-slate-700'}`}>
+                              ${parseFloat(exp.amount).toFixed(2)}
+                            </span>
                           </motion.div>
                         ))}
                       </motion.div>
@@ -469,9 +684,115 @@ const TripDetails = () => {
                 </div>
               </div>
             )}
+
+            {activeTab === 'packing' && (
+              <div className="mt-8">
+                <PackingList tripId={id} members={trip.members} currentUser={currentUser} />
+              </div>
+            )}
+
+            {activeTab === 'chat' && (
+              <div className="mt-8">
+                <TripChat tripId={id} currentUser={currentUser} />
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </main>
+
+
+      {/* ================= MODAL: SETTLE UP ================= */}
+      <AnimatePresence>
+        {isSettleOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 relative"
+            >
+              <button 
+                onClick={() => { setIsSettleOpen(false); setSettleError(''); }}
+                className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <h3 className="text-xl font-bold text-slate-900 mb-2 flex items-center gap-2">
+                <ArrowLeftRight className="w-5 h-5 text-emerald-500" />
+                Settle Up
+              </h3>
+              <p className="text-slate-500 text-sm mb-6">Record a direct cash or online payment to settle balance.</p>
+
+              <form onSubmit={handleSettleSubmit} className="space-y-4">
+                {settleError && (
+                  <div className="bg-rose-50 text-rose-700 text-xs p-3 rounded-xl border border-rose-100 font-medium">
+                    {settleError}
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">From (Payer)</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={`Me (@${currentUser?.username || 'loading...'})`}
+                    className="block w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-medium text-slate-500 cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">To (Recipient)</label>
+                  <select
+                    required
+                    value={settleForm.recipient}
+                    onChange={(e) => setSettleForm({ ...settleForm, recipient: e.target.value })}
+                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all font-medium text-slate-800 bg-slate-50 bg-white/50"
+                  >
+                    <option value="">Select Recipient</option>
+                    {trip.members.map(member => {
+                      const uname = member.user?.username || member.username || member;
+                      const uid = member.user?.id || member.id;
+                      if (uname === currentUser?.username) return null;
+                      return <option key={uid} value={uid}>{uname}</option>;
+                    })}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Amount ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={settleForm.amount}
+                    onChange={(e) => setSettleForm({ ...settleForm, amount: e.target.value })}
+                    placeholder="0.00"
+                    className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all font-medium text-slate-800 bg-slate-50"
+                  />
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={settleLoading}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-75 cursor-pointer mt-2"
+                >
+                  {settleLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Log Payment'}
+                </motion.button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

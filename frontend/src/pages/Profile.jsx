@@ -175,8 +175,11 @@ function Profile() {
 
     const handleLogout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('access');
+        localStorage.removeItem('refresh');
         navigate('/login');
     };
+
 
     const getInitials = () => {
         if (!profile) return 'U';
