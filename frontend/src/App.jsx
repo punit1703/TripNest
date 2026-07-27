@@ -7,9 +7,10 @@ import Profile from './pages/Profile';
 import TripDetails from './pages/TripDetails';
 
 const ProtectedRoute = ({ children }) => {
-    const isAuthenticated = !!localStorage.getItem('token');
+    const isAuthenticated = !!(localStorage.getItem('token') || localStorage.getItem('access'));
     return isAuthenticated ? children : <Navigate to="/login" />;
 };
+
 
 function App() {
   return (

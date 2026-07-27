@@ -277,13 +277,22 @@ const TripDetails = () => {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20">
       {/* Navigation Header */}
       <nav className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-all cursor-pointer">
-            <ArrowLeft className="w-5 h-5" />
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate('/')} className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-all cursor-pointer">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="text-xl font-bold text-slate-900 truncate">{trip.name}</div>
+          </div>
+          <button 
+            onClick={() => navigate('/profile')} 
+            className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-full text-xs font-bold transition-all cursor-pointer border border-purple-200/50"
+          >
+            <Users className="w-4 h-4" /> My Profile
           </button>
-          <div className="text-xl font-bold text-slate-900 truncate">{trip.name}</div>
         </div>
       </nav>
+
 
       {/* Trip Header Banner */}
       <motion.header 
