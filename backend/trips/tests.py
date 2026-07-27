@@ -219,3 +219,42 @@ class ItineraryMapTests(APITestCase):
         self.assertIsNotNone(first_day['longitude'])
 
 
+class TripChatTests(APITestCase):
+
+    def setUp(self):
+        self.user_member = User.objects.create_user(username='chat_member', password='password123')
+        self.user_stranger = User.objects.create_user(username='chat_stranger', password='password123')
+        self.trip = Trip.objects.create(
+            name="Tokyo Adventure",
+            origin="LA",
+            destination="Tokyo",
+            start_date="2026-10-01",
+            end_date="2026-10-10",
+            total_budget="3000.00",
+            created_by=self.user_member
+        )
+        TripMember.objects.create(trip=self.trip, user=self.user_member)
+        self.chat_url = reverse('trip-chat-messages', kwargs={'trip_id': self.trip.id})
+
+    def test_post_and_get_chat_message(self):
+        self.client.force_authenticate(user=self.user_member)
+        post_res = self.client.post(self.chat_url, {'message': 'Hey team! Ready for Tokyo?'}, format='json')
+        self.assertEqual(post_res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(post_res.data['message'], 'Hey team! Ready for Tokyo?')
+        self.assertEqual(post_res.data['sender_username'], 'chat_member')
+
+        get_res = self.client.get(self.chat_url)
+        self.assertEqual(get_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(get_res.data), 1)
+        self.assertEqual(get_res.data[0]['message'], 'Hey team! Ready for Tokyo?')
+
+    def test_chat_non_member_forbidden(self):
+        self.client.force_authenticate(user=self.user_stranger)
+        get_res = self.client.get(self.chat_url)
+        self.assertEqual(get_res.status_code, status.HTTP_403_FORBIDDEN)
+        
+        post_res = self.client.post(self.chat_url, {'message': 'Sneaking in!'}, format='json')
+        self.assertEqual(post_res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+

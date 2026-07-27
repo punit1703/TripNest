@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CreateTripView, JoinTripView, TripDetailView, GetUserTripsView, TripAnalyticsView, ExpenseListCreate, generate_itinerary, TripListCreate, PackingItemListCreateView, PackingItemDetailView
+from .views import CreateTripView, JoinTripView, TripDetailView, GetUserTripsView, TripAnalyticsView, ExpenseListCreate, generate_itinerary, TripListCreate, PackingItemListCreateView, PackingItemDetailView, ChatMessageListCreateView
 from expenses.views import TripSettlementView
 
 urlpatterns = [
@@ -14,4 +14,6 @@ urlpatterns = [
     path('<int:trip_id>/generate-itinerary/', generate_itinerary, name='generate-itinerary'),
     path('<int:trip_id>/packing/', PackingItemListCreateView.as_view(), name='trip-packing-list'),
     path('<int:trip_id>/packing/<int:pk>/', PackingItemDetailView.as_view(), name='trip-packing-detail'),
+    path('<int:trip_id>/messages/', ChatMessageListCreateView.as_view(), name='trip-chat-messages'),
 ]
+

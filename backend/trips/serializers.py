@@ -1,7 +1,17 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from users.serializers import UserSerializer
-from .models import Trip, TripMember, Expense, ItineraryDay, PackingItem
+from .models import Trip, TripMember, Expense, ItineraryDay, PackingItem, ChatMessage
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    sender_username = serializers.ReadOnlyField(source='sender.username')
+    sender_id = serializers.ReadOnlyField(source='sender.id')
+
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'trip', 'sender', 'sender_id', 'sender_username', 'message', 'timestamp']
+        read_only_fields = ['id', 'trip', 'sender', 'timestamp']
+
 
 class PackingItemSerializer(serializers.ModelSerializer):
     assigned_to_username = serializers.ReadOnlyField(source='assigned_to.username')

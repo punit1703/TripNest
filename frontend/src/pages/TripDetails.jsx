@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Calendar, DollarSign, Users, Wallet, Sparkles, Receipt, Loader2, Key, ArrowLeftRight, X, Map as MapIcon, Package } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, DollarSign, Users, Wallet, Sparkles, Receipt, Loader2, Key, ArrowLeftRight, X, Map as MapIcon, Package, MessageSquare, Download, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import api from '../services/api';
 import TripMap from '../components/TripMap';
 import PackingList from '../components/PackingList';
+import TripChat from '../components/TripChat';
+
+
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -32,6 +37,7 @@ const TripDetails = () => {
   const [error, setError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Settle Up States
   const [currentUser, setCurrentUser] = useState(null);
@@ -39,6 +45,52 @@ const TripDetails = () => {
   const [settleLoading, setSettleLoading] = useState(false);
   const [settleError, setSettleError] = useState('');
   const [settleForm, setSettleForm] = useState({ recipient: '', amount: '' });
+
+  const handleExportPDF = async () => {
+    const element = document.getElementById('itinerary-pdf-container');
+    if (!element) return;
+
+    try {
+      setIsExportingPdf(true);
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      const fileName = `${(trip?.name || 'Trip').replace(/[^a-zA-Z0-9]/g, '_')}_Itinerary.pdf`;
+      pdf.save(fileName);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      window.print();
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
 
   useEffect(() => {
     fetchTripDetails();
@@ -275,6 +327,7 @@ const TripDetails = () => {
           <TabButton active={activeTab === 'itinerary'} onClick={() => setActiveTab('itinerary')} icon={<Sparkles />} label="AI Itinerary" />
           <TabButton active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} icon={<Receipt />} label="Expenses & Balances" />
           <TabButton active={activeTab === 'packing'} onClick={() => setActiveTab('packing')} icon={<Package />} label="Packing List" />
+          <TabButton active={activeTab === 'chat'} onClick={() => setActiveTab('chat')} icon={<MessageSquare />} label="Group Chat" />
         </div>
       </div>
 
@@ -594,9 +647,16 @@ const TripDetails = () => {
                 <PackingList tripId={id} members={trip.members} currentUser={currentUser} />
               </div>
             )}
+
+            {activeTab === 'chat' && (
+              <div className="mt-8">
+                <TripChat tripId={id} currentUser={currentUser} />
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </main>
+
 
       {/* ================= MODAL: SETTLE UP ================= */}
       <AnimatePresence>

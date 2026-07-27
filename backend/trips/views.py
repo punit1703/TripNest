@@ -3,11 +3,14 @@ import json
 import google.generativeai as genai
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status, permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.views import APIView
+
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from .models import Trip, TripMember, Expense, ItineraryDay, PackingItem
-from .serializers import TripSerializer, TripDetailSerializer, ExpenseSerializer, PackingItemSerializer
+from .models import Trip, TripMember, Expense, ItineraryDay, PackingItem, ChatMessage
+from .serializers import TripSerializer, TripDetailSerializer, ExpenseSerializer, PackingItemSerializer, ChatMessageSerializer
+
 
 # Configure your AI Key (Paste your actual key inside the quotes!)
 genai.configure(api_key="YOUR_COPIED_API_KEY_HERE")
@@ -367,6 +370,26 @@ class PackingItemDetailView(generics.RetrieveUpdateDestroyAPIView):
         super().check_object_permissions(request, obj)
         if not TripMember.objects.filter(trip=obj.trip, user=request.user).exists():
             self.permission_denied(request, message="You are not a member of this trip.")
+
+
+class ChatMessageListCreateView(generics.ListCreateAPIView):
+    serializer_class = ChatMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        trip_id = self.kwargs['trip_id']
+        trip = get_object_or_404(Trip, id=trip_id)
+        if not TripMember.objects.filter(trip=trip, user=self.request.user).exists():
+            raise PermissionDenied("You are not a member of this trip.")
+        return ChatMessage.objects.filter(trip_id=trip_id).order_by('timestamp')
+
+    def perform_create(self, serializer):
+        trip = get_object_or_404(Trip, id=self.kwargs['trip_id'])
+        if not TripMember.objects.filter(trip=trip, user=self.request.user).exists():
+            raise PermissionDenied("You are not a member of this trip.")
+        serializer.save(sender=self.request.user, trip=trip)
+
+
 
 
 

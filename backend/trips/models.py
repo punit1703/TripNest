@@ -99,3 +99,17 @@ class PackingItem(models.Model):
 
     def __str__(self):
         return f"{self.item_name} ({self.trip.name})"
+
+
+class ChatMessage(models.Model):
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='chat_messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_chat_messages')
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp']
+
+    def __str__(self):
+        return f"[{self.trip.name}] {self.sender.username}: {self.message[:30]}"
+
