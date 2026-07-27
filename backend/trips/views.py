@@ -6,8 +6,8 @@ from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from .models import Trip, TripMember, Expense, ItineraryDay
-from .serializers import TripSerializer, TripDetailSerializer, ExpenseSerializer
+from .models import Trip, TripMember, Expense, ItineraryDay, PackingItem
+from .serializers import TripSerializer, TripDetailSerializer, ExpenseSerializer, PackingItemSerializer
 
 # Configure your AI Key (Paste your actual key inside the quotes!)
 genai.configure(api_key="YOUR_COPIED_API_KEY_HERE")
@@ -208,53 +208,53 @@ def generate_mock_itinerary(trip):
     
     if dest.lower() == 'spiti':
         activities_pool = [
-            "Arrive in Kaza, acclimatize to the high altitude, and rest.",
-            "Visit Key Monastery and the high-altitude village of Kibber.",
-            "Explore the fossil village of Langza and send a postcard from Hikkim, the world's highest post office.",
-            "Drive to Pin Valley, visit Kungri Monastery, and enjoy local homestay hospitality.",
-            "Travel to Dhankar Monastery, perched cliffside, and hike to Dhankar Lake.",
-            "Enjoy a premium camping experience at the pristine Chandratal Lake (Moon Lake).",
-            "Depart Kaza and travel back via Kunzum Pass and Rohtang Pass."
+            ("Arrive in Kaza, acclimatize to the high altitude, and rest.", "Kaza", 32.2252, 78.0710),
+            ("Visit Key Monastery and the high-altitude village of Kibber.", "Key Monastery", 32.2990, 78.0125),
+            ("Explore the fossil village of Langza and send a postcard from Hikkim.", "Hikkim", 32.2400, 78.0800),
+            ("Drive to Pin Valley, visit Kungri Monastery, and enjoy local homestay hospitality.", "Pin Valley", 32.0500, 78.0500),
+            ("Travel to Dhankar Monastery, perched cliffside, and hike to Dhankar Lake.", "Dhankar Monastery", 32.1333, 78.1333),
+            ("Enjoy a premium camping experience at the pristine Chandratal Lake.", "Chandratal Lake", 32.4700, 77.6167),
+            ("Depart Kaza and travel back via Kunzum Pass and Rohtang Pass.", "Kunzum Pass", 32.3962, 77.6366)
         ]
     elif dest.lower() == 'kyoto':
         activities_pool = [
-            "Arrive in Kyoto, check into your traditional Ryokan, and stroll around Gion in the evening.",
-            "Visit the iconic Fushimi Inari Shrine with its thousands of red torii gates.",
-            "Explore Kinkaku-ji (Golden Pavilion) and walk through the Arashiyama Bamboo Grove.",
-            "Participate in a traditional tea ceremony and explore the historic Kiyomizu-dera temple.",
-            "Take a day trip to Nara to see the giant Buddha at Todai-ji and feed the free-roaming deer.",
-            "Explore Nishiki Market to taste local street food and buy souvenirs.",
-            "Relax at a Zen rock garden and enjoy a fine multi-course kaiseki dinner before departure."
+            ("Arrive in Kyoto, check into your traditional Ryokan, and stroll around Gion.", "Gion, Kyoto", 35.0037, 135.7772),
+            ("Visit the iconic Fushimi Inari Shrine with its thousands of red torii gates.", "Fushimi Inari Shrine", 34.9671, 135.7727),
+            ("Explore Kinkaku-ji (Golden Pavilion) and walk through Arashiyama Bamboo Grove.", "Kinkaku-ji", 35.0394, 135.7292),
+            ("Participate in a traditional tea ceremony and explore Kiyomizu-dera temple.", "Kiyomizu-dera", 34.9949, 135.7850),
+            ("Take a day trip to Nara to see the giant Buddha at Todai-ji.", "Todai-ji, Nara", 34.6851, 135.8048),
+            ("Explore Nishiki Market to taste local street food and buy souvenirs.", "Nishiki Market", 35.0050, 135.7649),
+            ("Relax at a Zen rock garden and enjoy a fine multi-course kaiseki dinner.", "Kyoto Central", 35.0116, 135.7681)
         ]
     else:
+        # Generic fallback coordinates offset around a default location
+        base_lat, base_lng = 28.6139, 77.2090  # Default Delhi / general central location
         activities_pool = [
-            f"Arrive in {dest}, check in, and relax after your journey.",
-            f"Take a guided city tour to explore the major landmarks of {dest}.",
-            f"Enjoy a food tasting tour around the local markets of {dest}.",
-            f"Go on an outdoor adventure or nature trail excursion in the outskirts of {dest}.",
-            f"Visit a famous museum or cultural heritage site in {dest}.",
-            f"Indulge in a shopping spree at the popular districts of {dest}.",
-            f"Relax at a local cafe and watch the sunset on your final evening in {dest}."
+            (f"Welcome to {dest}! Arrive, check in, and relax after your journey.", f"{dest} Center", base_lat, base_lng),
+            (f"Take a guided city tour to explore the major landmarks of {dest}.", f"{dest} Landmarks", base_lat + 0.02, base_lng + 0.01),
+            (f"Enjoy a food tasting tour around the local markets of {dest}.", f"{dest} Market", base_lat - 0.01, base_lng + 0.02),
+            (f"Go on an outdoor adventure or nature trail excursion in {dest}.", f"{dest} Park", base_lat + 0.03, base_lng - 0.02),
+            (f"Visit a famous museum or cultural heritage site in {dest}.", f"{dest} Museum", base_lat - 0.02, base_lng - 0.01),
+            (f"Indulge in a shopping spree at the popular districts of {dest}.", f"{dest} Plaza", base_lat + 0.01, base_lng + 0.03),
+            (f"Relax at a local cafe and watch the sunset on your final evening in {dest}.", f"{dest} Viewpoint", base_lat - 0.03, base_lng + 0.01)
         ]
     
     itinerary = []
     for day in range(1, days + 1):
-        if day == 1:
-            activity = f"Welcome to {dest}! " + activities_pool[0]
-        elif day == days and days > 1:
-            activity = activities_pool[-1]
-        else:
-            idx = (day - 1) % (len(activities_pool) - 2) + 1
-            activity = activities_pool[idx]
+        idx = (day - 1) % len(activities_pool)
+        activity_text, loc_name, lat, lng = activities_pool[idx]
         
         if budget >= 15000:
-            activity += " [Premium/Luxury Experience]"
+            activity_text += " [Premium/Luxury Experience]"
         else:
-            activity += " [Budget-Friendly Option]"
+            activity_text += " [Budget-Friendly Option]"
             
         itinerary.append({
             "day_number": day,
-            "activity_description": activity
+            "activity_description": activity_text,
+            "location_name": loc_name,
+            "latitude": lat,
+            "longitude": lng
         })
     return itinerary
 
@@ -268,14 +268,18 @@ def generate_itinerary(request, trip_id):
         trip.itinerary_days.all().delete()
 
         # 2. Write the Prompt for the AI
-        # Note: Changed trip.budget to trip.total_budget to match DB model field
         prompt = f"""
         You are an expert travel planner. Create a day-by-day itinerary for a trip to {trip.destination}.
         The total budget for the trip is ${trip.total_budget}.
         The trip dates are from {trip.start_date} to {trip.end_date}. 
         
         Respond ONLY with a valid, raw JSON array of objects. Do not include markdown formatting like ```json.
-        Each object must have exactly two keys: "day_number" (an integer) and "activity_description" (a string detailing the plan).
+        Each object must have exactly five keys:
+        - "day_number" (an integer)
+        - "activity_description" (a string detailing the plan)
+        - "location_name" (a string naming the main landmark/location for this day)
+        - "latitude" (a float representing latitude of the location, e.g. 35.0116)
+        - "longitude" (a float representing longitude of the location, e.g. 135.7681)
         """
 
         # 3. Call the Gemini AI
@@ -296,12 +300,18 @@ def generate_itinerary(request, trip_id):
             new_day = ItineraryDay.objects.create(
                 trip=trip,
                 day_number=day['day_number'],
-                activity_description=day['activity_description']
+                activity_description=day['activity_description'],
+                location_name=day.get('location_name', f"Day {day['day_number']} Stop"),
+                latitude=day.get('latitude'),
+                longitude=day.get('longitude')
             )
             # Format exactly how React expects it
             formatted_for_react.append({
                 "day": new_day.day_number,
-                "activity": new_day.activity_description
+                "activity": new_day.activity_description,
+                "location_name": new_day.location_name,
+                "latitude": new_day.latitude,
+                "longitude": new_day.longitude
             })
 
         # Send it back to the frontend!
@@ -316,15 +326,48 @@ def generate_itinerary(request, trip_id):
                 new_day = ItineraryDay.objects.create(
                     trip=trip,
                     day_number=day['day_number'],
-                    activity_description=day['activity_description']
+                    activity_description=day['activity_description'],
+                    location_name=day.get('location_name', f"Day {day['day_number']} Stop"),
+                    latitude=day.get('latitude'),
+                    longitude=day.get('longitude')
                 )
                 formatted_for_react.append({
                     "day": new_day.day_number,
-                    "activity": new_day.activity_description
+                    "activity": new_day.activity_description,
+                    "location_name": new_day.location_name,
+                    "latitude": new_day.latitude,
+                    "longitude": new_day.longitude
                 })
             return Response({"itinerary": formatted_for_react})
         except Exception as mock_e:
             return Response({"error": f"AI Generation failed and fallback also failed: {str(mock_e)}"}, status=500)
+
+
+class PackingItemListCreateView(generics.ListCreateAPIView):
+    serializer_class = PackingItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        trip_id = self.kwargs['trip_id']
+        return PackingItem.objects.filter(trip_id=trip_id)
+
+    def perform_create(self, serializer):
+        trip = get_object_or_404(Trip, id=self.kwargs['trip_id'])
+        if not TripMember.objects.filter(trip=trip, user=self.request.user).exists():
+            raise permissions.PermissionDenied("You must be a member of this trip to add packing items.")
+        serializer.save(created_by=self.request.user, trip=trip)
+
+
+class PackingItemDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = PackingItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = PackingItem.objects.all()
+
+    def check_object_permissions(self, request, obj):
+        super().check_object_permissions(request, obj)
+        if not TripMember.objects.filter(trip=obj.trip, user=request.user).exists():
+            self.permission_denied(request, message="You are not a member of this trip.")
+
 
 
 

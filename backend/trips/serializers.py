@@ -1,7 +1,16 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from users.serializers import UserSerializer
-from .models import Trip, TripMember, Expense, ItineraryDay
+from .models import Trip, TripMember, Expense, ItineraryDay, PackingItem
+
+class PackingItemSerializer(serializers.ModelSerializer):
+    assigned_to_username = serializers.ReadOnlyField(source='assigned_to.username')
+    created_by_username = serializers.ReadOnlyField(source='created_by.username')
+
+    class Meta:
+        model = PackingItem
+        fields = ['id', 'item_name', 'category', 'assigned_to', 'assigned_to_username', 'is_packed', 'created_by', 'created_by_username', 'created_at']
+        read_only_fields = ['created_by', 'created_at']
 
 class TripMemberSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -34,7 +43,7 @@ class TripSerializer(serializers.ModelSerializer):
 class ItineraryDaySerializer(serializers.ModelSerializer):
     class Meta:
         model = ItineraryDay
-        fields = ['id', 'day_number', 'activity_description']
+        fields = ['id', 'day_number', 'activity_description', 'location_name', 'latitude', 'longitude']
 
 class TripDetailSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)

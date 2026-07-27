@@ -148,3 +148,74 @@ class TripTests(APITestCase):
         self.assertEqual(list_response.data[0]['name'], self.trip_data['name'])
         self.assertIn('budget', list_response.data[0])
 
+
+class PackingItemTests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='packer', password='password123')
+        self.stranger = User.objects.create_user(username='stranger_packer', password='password123')
+        self.trip = Trip.objects.create(
+            name="Beach Getaway",
+            origin="LA",
+            destination="Miami",
+            start_date="2026-08-01",
+            end_date="2026-08-05",
+            total_budget="1500.00",
+            created_by=self.user
+        )
+        TripMember.objects.create(trip=self.trip, user=self.user)
+        self.packing_url = reverse('trip-packing-list', kwargs={'trip_id': self.trip.id})
+
+    def test_add_packing_item(self):
+        self.client.force_authenticate(user=self.user)
+        data = {'item_name': 'Sunscreen', 'category': 'Essentials'}
+        response = self.client.post(self.packing_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['item_name'], 'Sunscreen')
+        self.assertEqual(response.data['category'], 'Essentials')
+
+    def test_toggle_packed_and_claim_item(self):
+        self.client.force_authenticate(user=self.user)
+        create_res = self.client.post(self.packing_url, {'item_name': 'Tent'}, format='json')
+        item_id = create_res.data['id']
+
+        detail_url = reverse('trip-packing-detail', kwargs={'trip_id': self.trip.id, 'pk': item_id})
+        patch_res = self.client.patch(detail_url, {'is_packed': True, 'assigned_to': self.user.id}, format='json')
+        self.assertEqual(patch_res.status_code, status.HTTP_200_OK)
+        self.assertTrue(patch_res.data['is_packed'])
+        self.assertEqual(patch_res.data['assigned_to_username'], 'packer')
+
+
+class ItineraryMapTests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='map_user', password='password123')
+        self.trip = Trip.objects.create(
+            name="Spiti Expedition",
+            origin="Delhi",
+            destination="Spiti",
+            start_date="2026-09-01",
+            end_date="2026-09-05",
+            total_budget="20000.00",
+            created_by=self.user
+        )
+        TripMember.objects.create(trip=self.trip, user=self.user)
+        self.gen_url = reverse('generate-itinerary', kwargs={'trip_id': self.trip.id})
+
+    def test_generate_itinerary_with_map_coordinates(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.gen_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('itinerary', response.data)
+        itinerary = response.data['itinerary']
+        self.assertGreater(len(itinerary), 0)
+        
+        # Verify first day contains location_name, latitude, and longitude coordinates for map rendering
+        first_day = itinerary[0]
+        self.assertIn('location_name', first_day)
+        self.assertIn('latitude', first_day)
+        self.assertIn('longitude', first_day)
+        self.assertIsNotNone(first_day['latitude'])
+        self.assertIsNotNone(first_day['longitude'])
+
+

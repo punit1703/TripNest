@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Calendar, DollarSign, Users, Wallet, Sparkles, Receipt, Loader2, Key, ArrowLeftRight, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, DollarSign, Users, Wallet, Sparkles, Receipt, Loader2, Key, ArrowLeftRight, X, Map as MapIcon, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
+import TripMap from '../components/TripMap';
+import PackingList from '../components/PackingList';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -67,7 +69,10 @@ const TripDetails = () => {
       if (response.data.itinerary_days && response.data.itinerary_days.length > 0) {
         setItinerary(response.data.itinerary_days.map(day => ({
           day: day.day_number,
-          activity: day.activity_description
+          activity: day.activity_description,
+          location_name: day.location_name,
+          latitude: day.latitude,
+          longitude: day.longitude
         })));
       }
     } catch (err) {
@@ -265,10 +270,11 @@ const TripDetails = () => {
 
       {/* Tabs Navigation */}
       <div className="max-w-5xl mx-auto px-6 mb-8">
-        <div className="flex gap-2 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm relative">
+        <div className="flex flex-wrap gap-2 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm relative">
           <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Users />} label="Overview & Members" />
           <TabButton active={activeTab === 'itinerary'} onClick={() => setActiveTab('itinerary')} icon={<Sparkles />} label="AI Itinerary" />
           <TabButton active={activeTab === 'expenses'} onClick={() => setActiveTab('expenses')} icon={<Receipt />} label="Expenses & Balances" />
+          <TabButton active={activeTab === 'packing'} onClick={() => setActiveTab('packing')} icon={<Package />} label="Packing List" />
         </div>
       </div>
 
@@ -376,9 +382,17 @@ const TripDetails = () => {
                           </motion.button>
                       </motion.div>
                   ) : (
-                      /* If we DO have an itinerary, display the day-by-day plan! */
-                      <div className="space-y-4">
-                          <h3 className="text-xl font-bold text-gray-900 mb-4 px-2">Your AI-Generated Schedule</h3>
+                      /* If we DO have an itinerary, display the interactive map and day-by-day plan! */
+                      <div className="space-y-6">
+                          {/* Mapped Interactive Route */}
+                          <TripMap itineraryDays={itinerary} destinationName={trip.destination} />
+
+                          <div className="flex items-center justify-between px-2 pt-2">
+                            <h3 className="text-xl font-bold text-gray-900">Your AI-Generated Schedule</h3>
+                            <span className="text-xs text-purple-600 font-bold bg-purple-50 px-3 py-1 rounded-full border border-purple-100 flex items-center gap-1">
+                              <MapIcon className="w-3.5 h-3.5" /> Interactive Map Mapped
+                            </span>
+                          </div>
                           
                           <motion.div 
                             variants={containerVariants}
@@ -391,15 +405,23 @@ const TripDetails = () => {
                                   variants={itemVariants}
                                   whileHover={{ scale: 1.01, x: 2 }}
                                   key={index} 
-                                  className="bg-white p-6 rounded-xl shadow-sm border border-purple-100 flex items-center gap-6 transition-all hover:shadow-md"
+                                  className="bg-white p-6 rounded-2xl shadow-sm border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center gap-5 transition-all hover:shadow-md"
                                 >
-                                    <div className="flex-shrink-0 w-16 h-16 bg-purple-50 text-purple-700 rounded-xl flex flex-col items-center justify-center font-bold border border-purple-200">
-                                        <span className="text-xs uppercase tracking-wider text-purple-500">Day</span>
-                                        <span className="text-2xl">{dayPlan.day}</span>
+                                    <div className="flex-shrink-0 w-16 h-16 bg-purple-50 text-purple-700 rounded-2xl flex flex-col items-center justify-center font-bold border border-purple-200 shadow-sm">
+                                        <span className="text-[10px] uppercase tracking-wider text-purple-500 font-extrabold">Day</span>
+                                        <span className="text-2xl font-black">{dayPlan.day}</span>
                                     </div>
-                                    <p className="text-gray-800 text-lg leading-relaxed">
-                                        {dayPlan.activity}
-                                    </p>
+                                    <div className="flex-1">
+                                      {dayPlan.location_name && (
+                                        <div className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-100/70 px-2.5 py-0.5 rounded-md mb-2">
+                                          <MapPin className="w-3 h-3 text-purple-600" />
+                                          {dayPlan.location_name}
+                                        </div>
+                                      )}
+                                      <p className="text-slate-800 text-base leading-relaxed">
+                                          {dayPlan.activity}
+                                      </p>
+                                    </div>
                                 </motion.div>
                             ))}
                           </motion.div>
@@ -564,6 +586,12 @@ const TripDetails = () => {
                     </motion.div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'packing' && (
+              <div className="mt-8">
+                <PackingList tripId={id} members={trip.members} currentUser={currentUser} />
               </div>
             )}
           </motion.div>

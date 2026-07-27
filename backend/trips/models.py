@@ -83,3 +83,19 @@ class ItineraryDay(models.Model):
 
     def __str__(self):
         return f"Day {self.day_number} in {self.trip.destination}"
+
+
+class PackingItem(models.Model):
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='packing_items')
+    item_name = models.CharField(max_length=255)
+    category = models.CharField(max_length=100, default='General')
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_packing_items')
+    is_packed = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_packing_items')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['is_packed', '-created_at']
+
+    def __str__(self):
+        return f"{self.item_name} ({self.trip.name})"
