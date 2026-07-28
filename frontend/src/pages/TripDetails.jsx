@@ -322,7 +322,7 @@ const TripDetails = () => {
                 <Calendar className="w-4 h-4 text-purple-300" /> {trip.start_date} to {trip.end_date}
               </div>
               <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-300" /> Budget: ${parseFloat(trip.total_budget).toLocaleString()}
+                <DollarSign className="w-4 h-4 text-emerald-300" /> Budget: ₹{parseFloat(trip.total_budget).toLocaleString()}
               </div>
             </div>
           </div>
@@ -417,7 +417,7 @@ const TripDetails = () => {
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">Magic Itinerary Generator</h3>
                           <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                              Let our intelligent system build a custom schedule for <strong className="text-purple-600">{trip.destination}</strong> based on your ${parseFloat(trip.total_budget).toLocaleString()} budget.
+                              Let our intelligent system build a custom schedule for <strong className="text-purple-600">{trip.destination}</strong> based on your ₹{parseFloat(trip.total_budget).toLocaleString()} budget.
                           </p>
                           
                           {generationError && (
@@ -573,7 +573,7 @@ const TripDetails = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
                         <input 
                           type="number" 
                           value={expenseAmount}
@@ -643,7 +643,7 @@ const TripDetails = () => {
                               </div>
                             </div>
                             <span className={`font-bold ${exp.is_settlement ? 'text-emerald-600' : 'text-slate-700'}`}>
-                              ${parseFloat(exp.amount).toFixed(2)}
+                              ₹{parseFloat(exp.amount).toFixed(2)}
                             </span>
                           </motion.div>
                         ))}
@@ -675,7 +675,7 @@ const TripDetails = () => {
                         >
                           <span className="font-semibold text-slate-800 text-sm">{username}</span>
                           <span className={`font-bold text-sm ${balance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                            {balance >= 0 ? `Owed $${balance.toFixed(2)}` : `Owes $${Math.abs(balance).toFixed(2)}`}
+                            {balance >= 0 ? `Owed ₹${balance.toFixed(2)}` : `Owes ₹${Math.abs(balance).toFixed(2)}`}
                           </span>
                         </motion.div>
                       ))}
@@ -766,7 +766,7 @@ const TripDetails = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Amount ($)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Amount (₹)</label>
                   <input
                     type="number"
                     step="0.01"

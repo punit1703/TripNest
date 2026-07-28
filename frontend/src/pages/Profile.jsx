@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   User, Mail, Calendar, Plus, Compass, Sparkles, LogOut, 
   Settings, CheckCircle, AlertCircle, Loader2, DollarSign, 
-  MapPin, X, ArrowRight, Shield
+  MapPin, X, ArrowRight, Shield, Copy, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
@@ -19,6 +19,41 @@ const containerVariants = {
 const itemVariants = {
   hidden: { opacity: 0, y: 15 },
   show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 15 } }
+};
+
+const getDestinationMedia = (destination = '') => {
+    const destLower = (destination || '').toLowerCase().trim();
+
+    let curatedPhoto = null;
+    if (destLower.includes('goa') || destLower.includes('beach')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('agra') || destLower.includes('taj')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('jaipur') || destLower.includes('rajasthan') || destLower.includes('pink city')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('kerala') || destLower.includes('backwater') || destLower.includes('alleppey') || destLower.includes('munnar')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('manali') || destLower.includes('shimla') || destLower.includes('himachal') || destLower.includes('mountain')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('varanasi') || destLower.includes('kashi') || destLower.includes('ghat')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('ladakh') || destLower.includes('leh') || destLower.includes('kashmir')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('udaipur') || destLower.includes('lake')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1615836245337-f5b9b2303f10?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('mumbai') || destLower.includes('bombay')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('delhi')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1587474260584-136574528ed5?auto=format&fit=crop&w=800&q=80';
+    } else if (destLower.includes('paris')) {
+        curatedPhoto = 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80';
+    }
+
+    const fallbackIndiaUrl = 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=800&q=80';
+
+    return {
+        imageUrl: curatedPhoto || fallbackIndiaUrl
+    };
 };
 
 function Profile() {
@@ -120,15 +155,32 @@ function Profile() {
         }
     };
 
+    // Copy invite code state
+    const [copiedCode, setCopiedCode] = useState('');
+
+    const handleCopyCode = (e, code) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (navigator.clipboard && code) {
+            navigator.clipboard.writeText(code);
+            setCopiedCode(code);
+            setTimeout(() => setCopiedCode(''), 2000);
+        }
+    };
+
     const handleJoinTrip = async (e) => {
         e.preventDefault();
         setJoinLoading(true);
         setJoinError('');
+        const cleanedCode = joinCode.trim().toUpperCase();
         try {
-            await api.post('/trips/join/', { invite_code: joinCode });
+            const response = await api.post('/trips/join/', { invite_code: cleanedCode });
             setIsJoinOpen(false);
             setJoinCode('');
-            fetchTrips();
+            await fetchTrips();
+            if (response.data?.trip?.id) {
+                navigate(`/trips/${response.data.trip.id}`);
+            }
         } catch (error) {
             console.error("Failed to join trip:", error);
             setJoinError(error.response?.data?.error || 'Invalid invite code or already joined.');
@@ -139,10 +191,26 @@ function Profile() {
 
     const handleCreateTrip = async (e) => {
         e.preventDefault();
-        setCreateLoading(true);
         setCreateError('');
+
+        // Client-side date check
+        if (createForm.start_date && createForm.end_date) {
+            const start = new Date(createForm.start_date);
+            const end = new Date(createForm.end_date);
+            if (end < start) {
+                setCreateError('End date must be on or after the start date.');
+                return;
+            }
+        }
+
+        if (createForm.total_budget && parseFloat(createForm.total_budget) < 0) {
+            setCreateError('Total budget cannot be negative.');
+            return;
+        }
+
+        setCreateLoading(true);
         try {
-            await api.post('/trips/', createForm);
+            const response = await api.post('/trips/', createForm);
             setIsCreateOpen(false);
             setCreateForm({
                 name: '',
@@ -152,7 +220,10 @@ function Profile() {
                 end_date: '',
                 total_budget: ''
             });
-            fetchTrips();
+            await fetchTrips();
+            if (response.data?.id) {
+                navigate(`/trips/${response.data.id}`);
+            }
         } catch (error) {
             console.error("Failed to create trip:", error);
             const errData = error.response?.data;
@@ -269,7 +340,7 @@ function Profile() {
                                 whileHover={{ scale: 1.05, translateY: -2 }}
                                 className="bg-slate-50 rounded-2xl p-4 text-center min-w-[130px] border border-slate-100 cursor-pointer transition-shadow hover:shadow-md"
                             >
-                                <span className="block text-2xl font-black text-indigo-600">${totalBudget.toLocaleString()}</span>
+                                <span className="block text-2xl font-black text-indigo-600">₹{totalBudget.toLocaleString()}</span>
                                 <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Budget Spent</span>
                             </motion.div>
                         </div>
@@ -361,33 +432,69 @@ function Profile() {
                                         animate="show"
                                         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
                                     >
-                                        {trips.map((trip) => (
-                                            <motion.div
-                                                variants={itemVariants}
-                                                key={trip.id}
-                                                whileHover={{ y: -6, scale: 1.02 }}
-                                                transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-                                            >
-                                                <Link 
-                                                    to={`/trips/${trip.id}`} 
-                                                    className="block bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all"
+                                        {trips.map((trip) => {
+                                            const media = getDestinationMedia(trip.destination);
+                                            return (
+                                                <motion.div
+                                                    variants={itemVariants}
+                                                    key={trip.id}
+                                                    whileHover={{ y: -6, scale: 1.02 }}
+                                                    transition={{ type: 'spring', stiffness: 200, damping: 18 }}
                                                 >
-                                                    <div className="h-32 bg-gradient-to-br from-purple-500 to-indigo-600 relative p-6 flex flex-col justify-end">
-                                                        <h3 className="text-xl font-bold text-white mb-1 drop-shadow-sm truncate">
-                                                            {trip.destination}
-                                                        </h3>
-                                                        <div className="flex gap-2">
-                                                            <span className="bg-white/20 text-white text-xs px-2.5 py-1 rounded-md backdrop-blur-sm font-semibold">
-                                                                {new Date(trip.start_date).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}
-                                                            </span>
+                                                    <Link 
+                                                        to={`/trips/${trip.id}`} 
+                                                        className="group block bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-2xl transition-all"
+                                                    >
+                                                        <div className="h-44 relative overflow-hidden bg-slate-900">
+                                                            {/* Destination Photo & Gradient */}
+                                                            <img 
+                                                                src={media.imageUrl} 
+                                                                alt={trip.destination}
+                                                                onError={(e) => {
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=800&q=80';
+                                                                }}
+                                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 brightness-90"
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/40 to-transparent"></div>
+
+                                                            <div className="absolute bottom-0 left-0 right-0 p-5 z-10 flex flex-col justify-end">
+                                                                <h3 className="text-2xl font-extrabold text-white drop-shadow-md truncate mb-1">
+                                                                    {trip.destination}
+                                                                </h3>
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <span className="bg-white/20 text-white text-xs px-3 py-1 rounded-full backdrop-blur-md font-semibold border border-white/20 shadow-sm">
+                                                                        {new Date(trip.start_date).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}
+                                                                    </span>
+                                                                    {trip.name && trip.name !== trip.destination && (
+                                                                        <span className="bg-purple-900/60 text-purple-200 text-xs px-2.5 py-1 rounded-full backdrop-blur-md font-semibold border border-purple-400/30 truncate max-w-[120px]">
+                                                                            {trip.name}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    </div>
                                                     <div className="p-5">
                                                         <div className="flex justify-between items-center text-sm text-slate-500 mb-4">
-                                                            <span className="font-semibold text-slate-600">Budget: ${parseFloat(trip.budget || trip.total_budget || 0).toLocaleString()}</span>
-                                                            <span className="bg-purple-100 text-purple-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-purple-200">
-                                                                Code: {trip.invite_code}
-                                                            </span>
+                                                            <span className="font-semibold text-slate-600">Budget: ₹{parseFloat(trip.budget || trip.total_budget || 0).toLocaleString()}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => handleCopyCode(e, trip.invite_code)}
+                                                                title="Click to copy invite code"
+                                                                className="inline-flex items-center gap-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-purple-200 transition-colors cursor-pointer"
+                                                            >
+                                                                {copiedCode === trip.invite_code ? (
+                                                                    <>
+                                                                        <Check className="w-3 h-3 text-emerald-600" />
+                                                                        <span>Copied!</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <span>Code: {trip.invite_code}</span>
+                                                                        <Copy className="w-3 h-3 text-purple-500 opacity-70" />
+                                                                    </>
+                                                                )}
+                                                            </button>
                                                         </div>
                                                         <div className="text-purple-600 font-bold text-sm hover:text-purple-800 flex items-center gap-1 transition-colors">
                                                             View Trip Details <ArrowRight className="w-4 h-4" />
@@ -395,7 +502,8 @@ function Profile() {
                                                     </div>
                                                 </Link>
                                             </motion.div>
-                                        ))}
+                                        );
+                                    })}
                                     </motion.div>
                                 ) : (
                                     /* Empty State */
@@ -697,7 +805,7 @@ function Profile() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Total Budget ($)</label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Total Budget (₹)</label>
                                     <div className="relative">
                                         <DollarSign className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
                                         <input
