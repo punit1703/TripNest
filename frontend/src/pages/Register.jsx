@@ -57,10 +57,19 @@ const Register = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-tr from-purple-50 via-slate-50 to-indigo-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans overflow-hidden relative">
+      {/* Real-time Indian Destination Background Photo */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <img 
+          src="https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?auto=format&fit=crop&w=1920&q=80" 
+          alt="Jaipur India Destination Background" 
+          className="w-full h-full object-cover opacity-15 filter blur-xs scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-tr from-purple-100/80 via-slate-50/90 to-indigo-100/80"></div>
+      </div>
+
       {/* Background Animated Blobs */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
       <div className="absolute top-1/3 -right-20 w-80 h-80 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-      <div className="absolute -bottom-20 left-1/3 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
 
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
