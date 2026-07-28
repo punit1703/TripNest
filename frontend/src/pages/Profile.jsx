@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   User, Mail, Calendar, Plus, Compass, Sparkles, LogOut, 
   Settings, CheckCircle, AlertCircle, Loader2, DollarSign, 
-  MapPin, X, ArrowRight, Shield
+  MapPin, X, ArrowRight, Shield, Copy, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
@@ -120,15 +120,32 @@ function Profile() {
         }
     };
 
+    // Copy invite code state
+    const [copiedCode, setCopiedCode] = useState('');
+
+    const handleCopyCode = (e, code) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (navigator.clipboard && code) {
+            navigator.clipboard.writeText(code);
+            setCopiedCode(code);
+            setTimeout(() => setCopiedCode(''), 2000);
+        }
+    };
+
     const handleJoinTrip = async (e) => {
         e.preventDefault();
         setJoinLoading(true);
         setJoinError('');
+        const cleanedCode = joinCode.trim().toUpperCase();
         try {
-            await api.post('/trips/join/', { invite_code: joinCode });
+            const response = await api.post('/trips/join/', { invite_code: cleanedCode });
             setIsJoinOpen(false);
             setJoinCode('');
-            fetchTrips();
+            await fetchTrips();
+            if (response.data?.trip?.id) {
+                navigate(`/trips/${response.data.trip.id}`);
+            }
         } catch (error) {
             console.error("Failed to join trip:", error);
             setJoinError(error.response?.data?.error || 'Invalid invite code or already joined.');
@@ -139,10 +156,26 @@ function Profile() {
 
     const handleCreateTrip = async (e) => {
         e.preventDefault();
-        setCreateLoading(true);
         setCreateError('');
+
+        // Client-side date check
+        if (createForm.start_date && createForm.end_date) {
+            const start = new Date(createForm.start_date);
+            const end = new Date(createForm.end_date);
+            if (end < start) {
+                setCreateError('End date must be on or after the start date.');
+                return;
+            }
+        }
+
+        if (createForm.total_budget && parseFloat(createForm.total_budget) < 0) {
+            setCreateError('Total budget cannot be negative.');
+            return;
+        }
+
+        setCreateLoading(true);
         try {
-            await api.post('/trips/', createForm);
+            const response = await api.post('/trips/', createForm);
             setIsCreateOpen(false);
             setCreateForm({
                 name: '',
@@ -152,7 +185,10 @@ function Profile() {
                 end_date: '',
                 total_budget: ''
             });
-            fetchTrips();
+            await fetchTrips();
+            if (response.data?.id) {
+                navigate(`/trips/${response.data.id}`);
+            }
         } catch (error) {
             console.error("Failed to create trip:", error);
             const errData = error.response?.data;
@@ -385,9 +421,24 @@ function Profile() {
                                                     <div className="p-5">
                                                         <div className="flex justify-between items-center text-sm text-slate-500 mb-4">
                                                             <span className="font-semibold text-slate-600">Budget: ${parseFloat(trip.budget || trip.total_budget || 0).toLocaleString()}</span>
-                                                            <span className="bg-purple-100 text-purple-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-purple-200">
-                                                                Code: {trip.invite_code}
-                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => handleCopyCode(e, trip.invite_code)}
+                                                                title="Click to copy invite code"
+                                                                className="inline-flex items-center gap-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-purple-200 transition-colors cursor-pointer"
+                                                            >
+                                                                {copiedCode === trip.invite_code ? (
+                                                                    <>
+                                                                        <Check className="w-3 h-3 text-emerald-600" />
+                                                                        <span>Copied!</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <span>Code: {trip.invite_code}</span>
+                                                                        <Copy className="w-3 h-3 text-purple-500 opacity-70" />
+                                                                    </>
+                                                                )}
+                                                            </button>
                                                         </div>
                                                         <div className="text-purple-600 font-bold text-sm hover:text-purple-800 flex items-center gap-1 transition-colors">
                                                             View Trip Details <ArrowRight className="w-4 h-4" />

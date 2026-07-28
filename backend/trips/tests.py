@@ -56,6 +56,20 @@ class TripTests(APITestCase):
         response = self.client.post(self.create_url, self.trip_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_create_trip_invalid_dates(self):
+        self.client.force_authenticate(user=self.user_creator)
+        invalid_data = {**self.trip_data, 'start_date': '2026-07-10', 'end_date': '2026-07-01'}
+        response = self.client.post(self.create_url, invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('end_date', response.data)
+
+    def test_create_trip_negative_budget(self):
+        self.client.force_authenticate(user=self.user_creator)
+        invalid_data = {**self.trip_data, 'total_budget': '-100.00'}
+        response = self.client.post(self.create_url, invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('total_budget', response.data)
+
     def test_join_trip_success(self):
         # Creator creates trip
         self.client.force_authenticate(user=self.user_creator)

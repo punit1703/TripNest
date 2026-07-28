@@ -50,6 +50,19 @@ class TripSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'invite_code', 'created_by', 'created_at')
 
+    def validate(self, attrs):
+        start_date = attrs.get('start_date')
+        end_date = attrs.get('end_date')
+        total_budget = attrs.get('total_budget')
+
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError({"end_date": "End date must be on or after the start date."})
+
+        if total_budget is not None and total_budget < 0:
+            raise serializers.ValidationError({"total_budget": "Total budget cannot be negative."})
+
+        return attrs
+
 class ItineraryDaySerializer(serializers.ModelSerializer):
     class Meta:
         model = ItineraryDay
